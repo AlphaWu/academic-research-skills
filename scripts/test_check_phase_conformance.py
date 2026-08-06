@@ -600,7 +600,7 @@ def test_empty_section_diagnostic_reports_the_non_blank_line_count():
 def test_non_canonical_dissent_field_shape_aborts(field_line):
     text = phase2_with_dissent_section([field_line])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -613,7 +613,7 @@ def test_non_canonical_dissent_field_shape_aborts(field_line):
 def test_a_dissent_hidden_from_the_sanitizers_still_aborts(hidden):
     """Fences, comments and headings must not launder a dissent field."""
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(phase2_with_dissent_section(hidden))
 
@@ -630,7 +630,7 @@ def test_a_canonical_dissent_cannot_hide_a_second_laundered_one(wrapper):
         *wrapper,
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -667,7 +667,7 @@ def test_a_fenced_heading_does_not_end_the_scanned_span():
         "```",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -703,7 +703,7 @@ def test_a_fenced_structural_heading_does_not_end_the_scanned_span(fence):
         fence,
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -784,7 +784,7 @@ def test_a_duplicate_field_hidden_in_a_fence_is_counted_not_matched():
         "```",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -797,7 +797,7 @@ def test_a_commented_out_dissent_is_not_credited_as_one():
         "<!--", "dimension_id: D1", "rationale: plan was inadequate", "-->",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -836,7 +836,7 @@ def test_a_comment_reopened_on_its_opening_line_still_hides(opener_line):
         "-->",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -853,7 +853,7 @@ def test_a_comment_reopened_on_its_closing_line_still_hides():
         "-->",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -878,7 +878,7 @@ def test_a_container_prefixed_opener_still_hides(opener):
         "rationale: plan was inadequate",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -907,7 +907,7 @@ def test_an_indented_container_marker_aborts(indented):
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -926,7 +926,7 @@ def test_an_ordered_marker_mid_paragraph_aborts(marker):
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -945,7 +945,7 @@ def test_a_container_marker_at_a_block_start_still_opens(marker):
         "rationale: plan was inadequate",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -972,7 +972,7 @@ def test_a_paragraph_closing_line_restores_every_marker(closer, marker):
         "<!-- -->",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1010,7 +1010,7 @@ def test_a_comment_block_is_not_a_paragraph(comment_block):
         "rationale: plan was inadequate",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1030,7 +1030,7 @@ def test_a_nested_marker_after_a_paragraph_aborts(nested):
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1049,7 +1049,7 @@ def test_a_marker_after_an_orphan_setext_line_aborts(orphan):
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1065,7 +1065,7 @@ def test_a_lone_bullet_at_a_block_start_is_an_empty_list_item(marker):
         "<!-- -->",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1086,7 +1086,7 @@ def test_a_marker_after_a_lone_list_marker_aborts(marker):
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1100,7 +1100,7 @@ def test_a_setext_underline_closes_the_paragraph_above_it():
         "<!-- -->",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1121,7 +1121,7 @@ def test_a_marker_after_exotic_whitespace_aborts(whitespace):
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1136,7 +1136,7 @@ def test_a_paragraph_interrupting_marker_still_opens(marker):
         "rationale: plan was inadequate",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1176,7 +1176,7 @@ def test_an_opener_inside_an_open_container_aborts(
         "rationale: plan was inadequate",
         "-->",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1209,7 +1209,7 @@ def test_an_indented_opener_continuing_a_paragraph_aborts():
         "rationale: plan was inadequate",
         "-->",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1296,7 +1296,7 @@ def test_a_comment_opened_after_prose_on_its_line_aborts():
         "rationale: plan was inadequate",
         "-->",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1312,7 +1312,7 @@ def test_an_unbackticked_marker_in_a_rationale_now_aborts_loudly():
         "dimension_id: D2",
         "rationale: the second plan was inadequate too",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1349,7 +1349,7 @@ def test_a_comment_opened_before_the_heading_credits_no_dissent():
         1,
     )
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1367,7 +1367,7 @@ def test_an_indented_comment_marker_aborts():
         "dimension_id: D1",
         "rationale: plan was inadequate",
     ])
-    with pytest.raises(phase.ConformanceError, match="DISSENT-GRAMMAR"):
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
         phase.parse_dissent_dimensions(text)
 
 
@@ -1395,7 +1395,7 @@ def test_one_nesting_level_in_a_link_destination_still_aborts():
         "[dimension_id](https://e/x_(y)z): D1",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1425,7 +1425,7 @@ def test_bulleted_multi_dissent_cannot_bypass_the_cardinality_gate():
         "- rationale: second plan was inadequate",
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1445,7 +1445,7 @@ def test_a_canonical_dissent_cannot_hide_a_second_decorated_one(wrapper):
         *wrapper,
     ])
     with pytest.raises(
-        phase.ConformanceError, match="canonical unbulleted"
+        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -4183,3 +4183,43 @@ def test_injected_identity_rejects_a_decorated_finding_ref(tmp_path, capsys):
     assert phase.main(injected_cli(tmp_path, lines, injected)) == \
         phase.EXIT_CONFORMANCE
     assert "[RECEIPT-IDENTITY:" in capsys.readouterr().out
+
+
+def test_an_escaped_backtick_span_cannot_hide_a_dissent(  # #613 sec P1a
+):
+    r"""CommonMark: `\`` is a literal backtick and opens no code span, so
+    the marker between two escaped backticks is a live comment opener —
+    blanking it credited a dissent the rendered page hides."""
+    text = phase2_with_dissent_section([
+        "Note: \\` <!-- \\` end.",
+        "dimension_id: D1",
+        "rationale: plan understated the sampling frame. -->",
+    ])
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
+        phase.parse_dissent_dimensions(text)
+
+
+def test_a_cross_line_code_span_cannot_hide_a_dissent():  # #613 sec P1b
+    """A trailing unpaired backtick run pairs into the NEXT line for the
+    renderer, pulling the marker out of code; once a paragraph's runs stop
+    pairing locally, blanking is off and the marker opens."""
+    text = phase2_with_dissent_section([
+        "Note on markup: `",
+        "` <!-- `",
+        "dimension_id: D1",
+        "rationale: plan was inadequate -->",
+    ])
+    with pytest.raises(phase.ConformanceError,
+                       match="DISSENT-HIDDEN|DISSENT-GRAMMAR"):
+        phase.parse_dissent_dimensions(text)
+
+
+def test_balanced_inline_code_mention_still_parses_after_the_fix():
+    """The sanctioned spelling survives both new guards: escaped-backtick
+    blanking and paragraph run-parity poisoning leave a balanced same-line
+    span as prose."""
+    text = phase2_with_dissent_section([
+        "dimension_id: D1",
+        "rationale: the seat wrote `<!--` and `-->` in inline code",
+    ])
+    assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
