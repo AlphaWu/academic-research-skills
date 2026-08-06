@@ -596,6 +596,27 @@ def _comment_state_after(
         commented, index = not commented, position + len(token)
 
 
+def _inline_comment_state_after(line: str, *, commented: bool) -> bool:
+    """Delimiter-order comment state with NO block-position requirement.
+
+    Span-scoped (#613): inside the dissent span the output grammar makes a
+    bare ``<!--`` out-of-grammar prose — the delivered Phase 2 prompts and
+    the protocol now require inline code for any mention — so every
+    occurrence is an opener, including the two CommonMark shapes the block
+    visibility model deliberately does not read (a marker following text on
+    its own line; a marker indented as a lazy paragraph continuation).
+    Callers blank code spans first, so the sanctioned inline-code mention
+    never opens.
+    """
+    index = 0
+    while True:
+        token = "-->" if commented else "<!--"
+        position = line.find(token, index)
+        if position < 0:
+            return commented
+        commented, index = not commented, position + len(token)
+
+
 def _lines_with_hidden_state(text: str):
     """Yield (line, fenced, hidden): fence plus HTML-comment visibility.
 
@@ -669,26 +690,31 @@ def _raw_dissent_span(text: str) -> DissentSpan:
     """
     span, hidden_by_comment, inside, commented = [], [], False, False
     paragraph_open = False
+    # #613: span-scoped inline comment state. Outside the span, only a
+    # block-position opener counts (the #612 model, unchanged, because
+    # prose there may legitimately mention a bare marker). INSIDE the span
+    # the delivered output grammar requires inline code for any mention, so
+    # a bare `<!--` is an opener wherever it appears — closing the two
+    # residual shapes (#613): a marker following text on its own line, and
+    # a marker indented as a lazy paragraph continuation.
+    span_inline = False
     for line, fenced in _lines_with_fence_state(text):
         entered_commented = commented
+        entered_inline = span_inline
         opens_comment = not fenced and _opens_comment(
             line, paragraph_open=paragraph_open
         )
         if not fenced:
             # A block opener only, list and blockquote markers included:
             # four columns STARTING a block makes indented code, and a fence
-            # makes every marker inert. Not read as an opener: a marker
+            # makes every marker inert. Not read as an opener HERE: a marker
             # mid-line, one in an inline-code span, or one indented as a lazy
-            # paragraph continuation. The first and last of those DO form a
-            # comment, so that miss is not free: it grants a trigger-binding
-            # exemption for a dissent the page does not show. Refused anyway,
-            # because closing it means reading a bare `<!--` inside
-            # unrestricted `rationale:` text as an opener, aborting a valid
-            # card on an unretryable phase; the deterministic closure belongs
-            # in the output grammar (#613), not here. Both are pinned as
-            # tests, and #613 also carries the wider hiding channel this
-            # visibility model does not cover at all: raw HTML that is not a
-            # comment, such as a `<script>` or `<template>` block.
+            # paragraph continuation — inside the dissent span those are the
+            # #613 inline state's job, now that the output grammar makes a
+            # bare marker out-of-grammar prose. #613 also carries the wider
+            # hiding channel this visibility model does not cover at all:
+            # raw HTML that is not a comment, such as a `<script>` or
+            # `<template>` block.
             commented = _comment_state_after(
                 line, commented=commented, paragraph_open=paragraph_open
             )
@@ -699,6 +725,7 @@ def _raw_dissent_span(text: str) -> DissentSpan:
             else:
                 inside = title == "Scoring Plan Dissent"
             paragraph_open = False
+            span_inline = False
             continue
         # CommonMark counts only spaces and tabs as blank, so a line holding
         # an ideographic space is a paragraph. Calling it blank put the next
@@ -722,17 +749,33 @@ def _raw_dissent_span(text: str) -> DissentSpan:
             and not (entered_commented or opens_comment)
         )
         if inside:
+            opens_inline = False
+            blanked = None
+            if (not fenced and not entered_commented and not entered_inline
+                    and not opens_comment):
+                # #613: only lines the block model does NOT already own can
+                # open the inline state; code spans are blanked first so the
+                # grammar's sanctioned `` `<!--` `` mention stays prose.
+                blanked = _blank_code_spans(line)
+                opens_inline = "<!--" in blanked
             # Opened up only where a comment actually is. Rewriting every line
             # carrying the tokens would break a canonical `rationale:` that
-            # merely mentions them (its text is unrestricted) from matching
-            # the canonical parse, aborting an unretryable Phase 2 on a
-            # valid card.
-            if entered_commented or opens_comment:
+            # merely mentions them in inline code from matching the
+            # canonical parse, aborting an unretryable Phase 2 on a valid
+            # card.
+            if (entered_commented or opens_comment or entered_inline
+                    or opens_inline):
                 span.append(line.replace("<!--", " ").replace("-->", " "))
             else:
                 span.append(line)
-            if entered_commented:
+            if entered_commented or entered_inline:
                 hidden_by_comment.append(line)
+            if not fenced and (entered_inline or opens_inline):
+                span_inline = _inline_comment_state_after(
+                    blanked if blanked is not None
+                    else _blank_code_spans(line),
+                    commented=entered_inline,
+                )
     return DissentSpan(span, hidden_by_comment)
 
 
