@@ -4223,3 +4223,38 @@ def test_balanced_inline_code_mention_still_parses_after_the_fix():
         "rationale: the seat wrote `<!--` and `-->` in inline code",
     ])
     assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+def test_an_empty_comment_closer_overlap_does_not_false_abort():
+    """codex #650 round 1 (P2): `<!-->` and `<!--->` CLOSE in CommonMark —
+    the closer reuses the opener's dashes — so the rendered fields below
+    them must keep parsing."""
+    for empty in ("<!-->", "<!--->"):
+        text = phase2_with_dissent_section([
+            f"note {empty}",
+            "dimension_id: D1",
+            "rationale: plan was inadequate",
+        ])
+        assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+def test_a_mid_line_reopen_after_a_close_hides_again():
+    """codex #650 round 1 (P3): a genuine close-and-REOPEN on one mid-line
+    — the second opener hides the fields below it."""
+    text = phase2_with_dissent_section([
+        "prose <!-- first --> more <!--",
+        "dimension_id: D1",
+        "rationale: plan was inadequate",
+        "-->",
+    ])
+    with pytest.raises(phase.ConformanceError, match="DISSENT-HIDDEN"):
+        phase.parse_dissent_dimensions(text)
+
+
+def test_a_mid_line_double_close_leaves_fields_parsed():
+    text = phase2_with_dissent_section([
+        "prose <!-- a --> and <!-- b --> clear:",
+        "dimension_id: D1",
+        "rationale: plan was inadequate",
+    ])
+    assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}

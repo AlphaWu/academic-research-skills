@@ -624,7 +624,13 @@ def _inline_comment_state_after(line: str, *, commented: bool) -> bool:
         position = line.find(token, index)
         if position < 0:
             return commented
-        commented, index = not commented, position + len(token)
+        commented = not commented
+        # After an opener, resume at +2 rather than +4: the closer may
+        # reuse the opener's own last two dashes (`<!-->`, `<!--->`) —
+        # the same overlap rule the block scanner applies (codex #650
+        # round 1, P2: skipping it left the empty comment "open" and
+        # false-aborted the rendered fields below it).
+        index = position + (2 if commented else len(token))
 
 
 def _lines_with_hidden_state(text: str):
