@@ -36,7 +36,9 @@ grow a third — extend one of these.
 A new report opts in with `"measurement_contract": "heldout-measurement/1.1"`.
 Supported versions and the current template version are single-sourced from the
 schema enum. Version 1.0 is accepted only for the exact path and SHA-256 of the
-allowlisted frozen row; I15 rejects every new, moved, or modified 1.0 row.
+allowlisted frozen row; that byte identity is sufficient even in a shallow
+checkout whose object database omits the historical `suite_commit`. I15 rejects
+every new, moved, or modified 1.0 row.
 Version 1.1 adds five linked controls: adjudication direction, judge-side blinding,
 reserved design/arm vocabulary, a plan+rubric pre-registration record, and a
 hashed write-once execution manifest.

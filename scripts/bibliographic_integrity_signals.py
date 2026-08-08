@@ -295,8 +295,8 @@ def render_advisory_section(signals: list[dict[str, Any]]) -> str:
     lines = [
         "## Bibliographic Integrity Advisories",
         "",
-        "| signal_id | citation | label | status | finding | source | source version | source sha256 | checked at | recorded at | stale after | freshness | source pointer | claims |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| signal_id | signal type | citation | label | status | finding | source | source version | source sha256 | checked at | recorded at | stale after | freshness | source pointer | claims |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for signal in sorted(signals, key=lambda item: item["signal_id"]):
         status = signal["check_status"]
@@ -306,11 +306,12 @@ def render_advisory_section(signals: list[dict[str, Any]]) -> str:
         claims = ", ".join(signal["subject"]["affected_claims"]) or "—"
         provenance = signal["provenance"]
         lines.append(
-            "| {signal_id} | {citation} | {label} | {status} | {finding} | "
+            "| {signal_id} | {signal_type} | {citation} | {label} | {status} | {finding} | "
             "{source} | {source_version} | {source_sha256} | {checked_at} | "
             "{recorded_at} | {stale_after} | {freshness} | {source_pointer} | "
             "{claims} |".format(
                 signal_id=cell(signal["signal_id"]),
+                signal_type=cell(signal["signal_type"]),
                 citation=cell(signal["subject"]["citation_key"]),
                 label=cell(signal["epistemic_label"]),
                 status=cell(status),

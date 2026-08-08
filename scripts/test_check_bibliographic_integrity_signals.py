@@ -95,6 +95,7 @@ def test_multiple_signals_compose_in_one_section_without_marker_token() -> None:
     assert "<!--ref:" not in rendered
     assert rendered.index("bis:jones2025") < rendered.index("bis:smith2024")
     for heading in (
+        "signal type",
         "source version",
         "source sha256",
         "checked at",

@@ -902,7 +902,10 @@ def _validate_obj(path: Path, report: dict) -> int:
             allow_frozen_v1_0 = False
     errors, warnings = _validate_report(
         report,
-        resolve_refs=True,
+        # The byte-pinned 1.0 row predates this resolver contract and may name
+        # commits omitted by a shallow CI checkout. Its exact path+SHA is the
+        # authorization; do not retrofit R1-R5 onto that frozen artifact.
+        resolve_refs=not allow_frozen_v1_0,
         allow_frozen_v1_0=allow_frozen_v1_0,
     )
     errors.extend(location_errors(path, report))

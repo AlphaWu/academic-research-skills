@@ -235,7 +235,7 @@ def test_new_v1_0_report_is_rejected_even_if_schema_valid():
     assert any("I15" in error for error in errors_of(make_valid_v1_0_report()))
 
 
-def test_frozen_2026_08_07_row_is_byte_unchanged_and_valid():
+def test_frozen_2026_08_07_row_is_byte_unchanged_and_valid(monkeypatch):
     path = HELDOUT_ROOT / "revision_claim_drift/measurement-2026-08-07.json"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == (
         "1af137c798e6cf3a5d0a742e379a8af78fe802cb924b4ece22cdf57cb881f573"
@@ -244,6 +244,11 @@ def test_frozen_2026_08_07_row_is_byte_unchanged_and_valid():
 
     report = json.loads(path.read_text(encoding="utf-8"))
     assert report["measurement_contract"] == "heldout-measurement/1.0"
+
+    def unexpected_git_probe(*_args, **_kwargs):
+        raise AssertionError("frozen v1.0 must not require full git history")
+
+    monkeypatch.setattr(subprocess, "run", unexpected_git_probe)
     assert _validate_obj(path, report) == 0
 
 
