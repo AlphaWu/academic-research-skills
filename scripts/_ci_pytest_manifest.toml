@@ -399,3 +399,11 @@ path = "scripts/test_check_command_frontmatter_name.py"
 [[pytest]]
 id = "654-heldout-measurement-contract"
 path = "scripts/test_check_heldout_measurement_report.py"
+
+[[pytest]]
+id = "665-human-subjects-output-contract"
+path = "scripts/test_check_human_subjects_output_contract.py"
+
+[[pytest]]
+id = "678-bibliographic-integrity-signals"
+path = "scripts/test_check_bibliographic_integrity_signals.py"

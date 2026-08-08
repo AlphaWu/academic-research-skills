@@ -757,6 +757,27 @@ Example: `<!--ref:smith2024 LOW-WARN CONTAMINATED-PREPRINT-->` or `<!--ref:smith
 
 The contamination annotation does NOT apply to HIGH-WARN / MED-WARN / MED-WARN-NO-LOCATOR rows — those already block at the gate and the user must address the higher-severity problem before contamination becomes relevant.
 
+### Canonical bibliographic-integrity carrier (#678)
+
+`literature_corpus[].bibliographic_integrity_signals[]`, validated by
+`shared/contracts/passport/bibliographic_integrity_signal.schema.json`, is the
+canonical structured carrier for new bibliographic-integrity observations.
+The finalizer remains the sole terminal-policy owner, but v1.0 records do not
+change policy: `terminal_policy.eligible: false` means advisory-only and MUST
+NOT produce `HIGH-BLOCK`.
+
+The carrier does not expand the ref-marker grammar. The finalizer writes no
+marker token from `bibliographic_integrity_signals[]`; `display.marker_token`
+is always null. During the pinned dual-write migration it continues deriving
+the one recognized `CONTAMINATED-*` advisory suffix from legacy
+`contamination_signals` exactly as specified below. Retraction and
+tortured-phrase records, and any additional canonical records, compose as
+lexically sorted rows in the formatter-owned `Bibliographic Integrity
+Advisories` section of `provenance_summary.md`. `not_checked`, `unknown`, and
+`degraded` are unresolved states, never clean results. See
+`shared/bibliographic_integrity_signals.md` for the epistemic and deprecation
+contract.
+
 ### Updated 5-cell + annotation resolution order
 
 For each `<!--ref:slug--><!--anchor:<kind>:<value>-->` marker pair:

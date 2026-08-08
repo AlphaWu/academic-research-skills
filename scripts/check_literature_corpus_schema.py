@@ -49,6 +49,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 ENTRY_SCHEMA_PATH = REPO_ROOT / "shared/contracts/passport/literature_corpus_entry.schema.json"
 REJECTION_SCHEMA_PATH = REPO_ROOT / "shared/contracts/passport/rejection_log.schema.json"
 TERMINAL_POLICIES_SCHEMA_PATH = REPO_ROOT / "shared/contracts/passport/terminal_policies.schema.json"
+SIGNAL_SCHEMA_PATH = REPO_ROOT / "shared/contracts/passport/bibliographic_integrity_signal.schema.json"
 EXAMPLES_ROOT = REPO_ROOT / "scripts/adapters/examples"
 
 
@@ -97,6 +98,7 @@ def validate_passport(
     path: Path,
     entry_schema: dict[str, Any],
     terminal_policies_schema: dict[str, Any] | None = None,
+    signal_schema: dict[str, Any] | None = None,
 ) -> list[str]:
     errors: list[str] = []
     data, parse_err = _safe_load_yaml(path)
@@ -140,6 +142,7 @@ def validate_passport(
         errors.append(f"{path}: 'literature_corpus' must be a list")
         return errors
     validator = _build_validator(entry_schema)
+    signal_validator = _build_validator(signal_schema) if signal_schema is not None else None
     citation_keys: dict[str, int] = {}
     for i, entry in enumerate(corpus):
         for err in validator.iter_errors(entry):
@@ -155,6 +158,16 @@ def validate_passport(
         # already a schema-type error (reported above); the semantic guard must not
         # crash on it (.strip() on a non-str), so let the schema error stand alone.
         if isinstance(entry, dict):
+            if signal_validator is not None:
+                signals = entry.get("bibliographic_integrity_signals", [])
+                if isinstance(signals, list):
+                    for signal_i, signal in enumerate(signals):
+                        for err in signal_validator.iter_errors(signal):
+                            errors.append(
+                                f"{path}: literature_corpus[{i}]."
+                                f"bibliographic_integrity_signals[{signal_i}] "
+                                f"schema validation error: {err.message}"
+                            )
             vts = entry.get("venue_type_source", "")
             vtp = entry.get("venue_type_provenance", "")
             if isinstance(vts, str) and isinstance(vtp, str):
@@ -195,13 +208,19 @@ def scan_examples(
     entry_schema: dict[str, Any],
     log_schema: dict[str, Any],
     terminal_policies_schema: dict[str, Any] | None = None,
+    signal_schema: dict[str, Any] | None = None,
 ) -> list[str]:
     errors: list[str] = []
     if not EXAMPLES_ROOT.exists():
         return errors
     for passport in EXAMPLES_ROOT.glob("*/expected_passport.yaml"):
         errors.extend(
-            validate_passport(passport, entry_schema, terminal_policies_schema)
+            validate_passport(
+                passport,
+                entry_schema,
+                terminal_policies_schema,
+                signal_schema,
+            )
         )
     for log in EXAMPLES_ROOT.glob("*/expected_rejection_log.yaml"):
         errors.extend(validate_rejection_log(log, log_schema))
@@ -225,17 +244,30 @@ def main() -> int:
     entry_schema = load_schema(ENTRY_SCHEMA_PATH)
     log_schema = load_schema(REJECTION_SCHEMA_PATH)
     terminal_policies_schema = load_schema(TERMINAL_POLICIES_SCHEMA_PATH)
+    signal_schema = load_schema(SIGNAL_SCHEMA_PATH)
 
     errors: list[str] = []
     if args.passport:
         errors.extend(
-            validate_passport(args.passport, entry_schema, terminal_policies_schema)
+            validate_passport(
+                args.passport,
+                entry_schema,
+                terminal_policies_schema,
+                signal_schema,
+            )
         )
     if args.rejection_log:
         errors.extend(validate_rejection_log(args.rejection_log, log_schema))
 
     if not args.passport and not args.rejection_log:
-        errors.extend(scan_examples(entry_schema, log_schema, terminal_policies_schema))
+        errors.extend(
+            scan_examples(
+                entry_schema,
+                log_schema,
+                terminal_policies_schema,
+                signal_schema,
+            )
+        )
 
     if errors:
         for e in errors:

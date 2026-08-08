@@ -105,10 +105,15 @@ Research Question Type
 
 When research involves human subjects (surveys, interviews, experiments, personal data analysis), the methodology blueprint **must** include an IRB plan:
 
-- **IRB review level determination**: Determine Exempt/Expedited/Full Board review based on research risk and participant population
+- **Candidate-pathway preparation only**: Record the protocol facts, unresolved applicability questions, and institution-specific materials a qualified office will need. Do not select or emit an Exempt, Expedited, Full Board, or equivalent pathway as an ARS determination; the pathway field must read `institutional determination required`.
 - **Informed consent planning**: Confirm consent form elements, handling of special situations (online, minors, indigenous peoples)
 - **Data de-identification strategy**: Plan de-identification methods, data retention and destruction procedures
-- **Timeline integration**: Incorporate IRB review timeline (2-8 weeks) into overall research schedule
+- **Timeline integration**: Ask the responsible institution for its current process estimate. Unless the user supplies a dated institutional estimate, record the review timeline as `unknown — obtain current institutional estimate`; do not emit a universal duration.
+- **Separate status fields**: Report `submission_readiness` (`gaps_located | no_listed_gaps_located | unresolved`) independently from `authorization_status` (`documented | not_provided | cannot_verify`). Readiness never establishes or updates authorization.
+
+Every methodology blueprint that discusses human-subjects activity must end that section with this exact footer:
+
+> **Human-subjects boundary:** This output does not authorize recruitment, consent, access to identifiable data, intervention, or data collection.
 
 > Reference: `references/irb_decision_tree.md`
 
