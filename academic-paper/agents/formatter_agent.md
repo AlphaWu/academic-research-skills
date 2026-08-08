@@ -405,6 +405,15 @@ When refusing, surface the unresolved markers to the user with their per-section
 
 **Contamination annotations (`CONTAMINATED-PREPRINT`, `CONTAMINATED-UNMATCHED`, `CONTAMINATED-PREPRINT+UNMATCHED`, `CONTAMINATED-COVERAGE-NOISE`, `CONTAMINATED-PARTIAL-UNMATCH`, `CONTAMINATED-TRIANGULATION-UNMATCHED`, `CONTAMINATED-PREPRINT+COVERAGE-NOISE`, `CONTAMINATED-PREPRINT+PARTIAL-UNMATCH`, `CONTAMINATED-PREPRINT+TRIANGULATION-UNMATCHED`, `CONTAMINATED-ARXIV-UNMATCHED`, `CONTAMINATED-QUADRANGULATION-UNMATCHED`, `CONTAMINATED-PREPRINT+ARXIV-UNMATCHED`, `CONTAMINATED-PREPRINT+QUADRANGULATION-UNMATCHED`) on `ok` or `LOW-WARN` markers DO NOT trigger refusal.** They are advisory per v3.5 Collaboration Depth Observer precedent + v3.7.3 R-L3-2-A + v3.9.0 R-L3-2-E — surface them in the output package's `provenance_summary.md`, but do not block the conversion. v3.7.3 added the first three; v3.9.0 added the next 6 triangulation-tier suffixes; the v3.10/v3.11 Delta-1 arXiv four-index extension adds the final 4 (`CONTAMINATED-ARXIV-UNMATCHED`, `CONTAMINATED-QUADRANGULATION-UNMATCHED`, and their two PREPRINT compositions). The advisory **suffix** never triggers refusal — the pass-through allowlist grows in lockstep with the finalizer (3 → 9 → 13), but the **refusal semantics are unchanged**: no contamination suffix has ever been or will be added to the refusal list (R-L3-2-E). (v3.10 separately adds rule 11, a generic `severity=HIGH-BLOCK` refusal: when a strict `terminal_policies` promotes a k=3 signal, the finalizer co-emits a `TERMINAL-BLOCK` token ALONGSIDE the advisory suffix; rule 11 refuses on that token, NOT on the suffix. The suffix stays on the advisory pass-through allowlist; the refusal-list is extended only by the one generic rule, never per-suffix — R-L3-2-E.)
 
+## Bibliographic Integrity Advisories (#678)
+When any `literature_corpus[].bibliographic_integrity_signals[]` record is present, render exactly one `Bibliographic Integrity Advisories` section in `provenance_summary.md`.
+Validate against `shared/contracts/passport/bibliographic_integrity_signal.schema.json` and sort rows lexically by `signal_id`.
+Show type, `epistemic_label`, status, finding, citation/claims, source pointer, resolver/list, version/hash, checked/recorded/stale timestamps, and freshness; keep deterministic, heuristic, and process labels distinct.
+This is append-only transcription, not policy evaluation. Never mint a ref-marker token from this array: v1 `display.marker_token` is null and all records compose in this section.
+Existing `CONTAMINATED-*` tokens remain legacy-carrier outputs during dual write.
+Render `finding: unresolved` or status `not_checked`, `unknown`, or `degraded` as **NOT CLEAN — UNRESOLVED**; never call those states passed, absent, or clean.
+`terminal_policy.eligible: false` cannot trigger refusal or `HIGH-BLOCK`; migration/deprecation authority is `shared/bibliographic_integrity_signals.md`.
+
 ## Cite-Time Terminal Policy Gate (v3.10) — STAMP-ONLY freshness + rule 11
 
 Per spec §3 PR-B item 10 (R1 P0-C + R2-P0). The finalizer is the SOLE policy evaluator; the formatter is a **dumb stamp-checking gate** — it MUST NOT re-evaluate `strict_articles_only` DOI/venue/provenance logic (that would duplicate the finalizer and invite drift, Invariant 13). It only (1) recomputes the passport's current `terminal_policies` slug and compares stamps, and (2) refuses on `severity=HIGH-BLOCK` tokens.
@@ -493,7 +502,7 @@ NOT a refusal rule: this agent stays stamp-only (Invariant 13) — it never re-r
 | paper.tex | LaTeX | LaTeX source (if requested) |
 | references.bib | BibTeX | Bibliography (if LaTeX) |
 | cover_letter.md | Markdown | Journal cover letter (if applicable) |
-| provenance_summary.md | Markdown | Advisory provenance report — MUST be delivered whenever any advisory fires (contamination, version-family, or the mandatory `Citation Existence Advisories` section for advisory `lookup_verified == false` rows per C-V6(b)). The only deliverable-visible carrier for an advisory false, so it cannot be dropped when one exists. |
+| provenance_summary.md | Markdown | Advisory provenance report — MUST be delivered whenever any advisory fires (bibliographic-integrity signals, contamination, version-family, or the mandatory `Citation Existence Advisories` section for advisory `lookup_verified == false` rows per C-V6(b)). The only deliverable-visible carrier for an advisory false, so it cannot be dropped when one exists. |
 
 ### Format Specifications Applied
 | Spec | Value |
