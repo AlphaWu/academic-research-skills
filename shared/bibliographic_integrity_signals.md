@@ -29,7 +29,10 @@ Every v1 signal is rendered as one row in the single
 Rows compose by `signal_id` in lexical order and show the signal type,
 epistemic label, check status, finding, affected citation/claims, provenance,
 and freshness. The formatter must render `not_checked`, `unknown`, and
-`degraded` as **NOT CLEAN — UNRESOLVED**.
+`degraded`, or any signal whose `finding` is `unresolved`, as **NOT CLEAN —
+UNRESOLVED**. The rendered table carries the resolver/list name, version and
+hash, checked/recorded/stale timestamps, freshness, source pointer, and affected
+claims so an advisory never loses its provenance in projection.
 
 `display.marker_token` is always `null`. New retraction and tortured-phrase
 signals do not mint another `<!--ref:...-->` advisory token. During migration,

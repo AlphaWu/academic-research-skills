@@ -21,6 +21,9 @@ from check_heldout_measurement_report import (
     HELDOUT_ROOT,
     REPO_ROOT,
     TEMPLATE_PATH,
+    _execution_claim_errors,
+    _execution_validator,
+    _validate_obj,
     contract_version,
     is_contract_report,
     location_errors,
@@ -169,6 +172,7 @@ def make_valid_mechanical_report() -> dict:
         "divergent_items": [],
         "note": "mechanical match; no judges",
     }
+    report["preregistration"].pop("judge_template_version")
     return report
 
 
@@ -227,8 +231,8 @@ def test_valid_legacy_row_passes():
     assert errors_of(make_valid_legacy_row()) == []
 
 
-def test_valid_v1_0_report_passes_without_v1_1_fields():
-    assert errors_of(make_valid_v1_0_report()) == []
+def test_new_v1_0_report_is_rejected_even_if_schema_valid():
+    assert any("I15" in error for error in errors_of(make_valid_v1_0_report()))
 
 
 def test_frozen_2026_08_07_row_is_byte_unchanged_and_valid():
@@ -240,7 +244,7 @@ def test_frozen_2026_08_07_row_is_byte_unchanged_and_valid():
 
     report = json.loads(path.read_text(encoding="utf-8"))
     assert report["measurement_contract"] == "heldout-measurement/1.0"
-    assert errors_of(report) == []
+    assert _validate_obj(path, report) == 0
 
 
 # ------------------------------------------------------------- opt-in marker
@@ -345,6 +349,27 @@ def test_flags_only_lower_bound_requires_headline_and_caveat_wording():
     assert errors_of(report) == []
 
 
+def test_other_frozen_requires_explicit_note_and_lower_bound_honesty():
+    report = make_valid_report()
+    report["adjudication"]["resolution_direction"] = "other_frozen"
+    assert errors_of(report)
+    report["adjudication"]["resolution_direction_note"] = (
+        "The frozen rule may remove flags but cannot add missed flags."
+    )
+    assert any("I13" in error for error in errors_of(report))
+    report["aggregate"]["headline"]["estimand_status"] = "lower_bound"
+    report["aggregate"]["headline"]["construction_rule"] += "; lower bound"
+    report["caveats"].append("The other-frozen headline is a lower bound.")
+    assert errors_of(report) == []
+
+
+def test_judge_template_version_required_only_for_judge_bearing_rows():
+    report = make_valid_report()
+    del report["preregistration"]["judge_template_version"]
+    assert errors_of(report)
+    assert errors_of(make_valid_mechanical_report()) == []
+
+
 def test_preregistration_rubric_must_match_adjudication():
     report = make_valid_report()
     report["preregistration"]["rubric_sha256"] = "f" * 64
@@ -397,6 +422,20 @@ def test_timing_claim_requires_execution_manifest_declaration(text, claim):
     assert errors_of(report) == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The calls were not run concurrently.",
+        "No same-window execution was attempted.",
+        "Execution never used ordering guarantees.",
+    ],
+)
+def test_negated_timing_language_does_not_create_a_claim(text):
+    report = make_valid_report()
+    report["caveats"].append(text)
+    assert errors_of(report) == []
+
+
 # ------------------------------------------------------------- schema layer
 
 
@@ -440,7 +479,36 @@ def test_bad_date_fails():
 def test_impossible_date_fails():
     report = make_valid_report()
     report["measurement_date"] = "9999-99-99"
-    assert any("I12" in e for e in errors_of(report))
+    assert errors_of(report)
+
+
+def test_invalid_amendment_timestamp_fails_schema_format_check():
+    report = make_valid_report()
+    report["preregistration"]["amendments"] = [
+        {
+            "amendment_id": "A1",
+            "recorded_at": "not-a-timestamp",
+            "description": "invalid fixture",
+        }
+    ]
+    assert errors_of(report)
+
+
+def test_naive_amendment_timestamp_fails_without_crashing_comparison():
+    report = make_valid_report()
+    report["preregistration"]["amendments"] = [
+        {
+            "amendment_id": "A1",
+            "recorded_at": "2026-08-08T00:00:00Z",
+            "description": "aware",
+        },
+        {
+            "amendment_id": "A2",
+            "recorded_at": "2026-08-08T01:00:00",
+            "description": "missing timezone",
+        },
+    ]
+    assert errors_of(report)
 
 
 def test_subject_missing_suite_commit_fails():
@@ -875,6 +943,84 @@ def test_nan_rejected():
 
     with pytest.raises(ValueError):
         _loads_strict('{"rate": NaN}')
+
+
+def _execution_manifest_fixture() -> dict:
+    return {
+        "schema_version": "heldout-execution-manifest/1.0",
+        "suite": "revision_claim_drift",
+        "created_at": "2026-08-08T00:00:00Z",
+        "write_once": True,
+        "calls": [
+            {
+                "call_id": "c1",
+                "sequence_index": 1,
+                "started_at": "2026-08-08T00:00:00Z",
+                "completed_at": "2026-08-08T00:00:10Z",
+                "prompt_sha256": "1" * 64,
+                "output_sha256": "2" * 64,
+                "concurrency_group": "g1",
+            },
+            {
+                "call_id": "c2",
+                "sequence_index": 2,
+                "started_at": "2026-08-08T00:00:05Z",
+                "completed_at": "2026-08-08T00:00:15Z",
+                "prompt_sha256": "3" * 64,
+                "output_sha256": "4" * 64,
+                "concurrency_group": "g1",
+            },
+        ],
+    }
+
+
+def test_execution_manifest_timestamp_format_is_enforced():
+    manifest = _execution_manifest_fixture()
+    manifest["calls"][0]["started_at"] = "not-a-timestamp"
+    assert list(_execution_validator().iter_errors(manifest))
+
+
+def test_single_call_cannot_support_any_multi_call_execution_claim():
+    manifest = _execution_manifest_fixture()
+    manifest["calls"] = manifest["calls"][:1]
+    errors = _execution_claim_errors(
+        manifest, {"ordering", "concurrency", "same_window"}
+    )
+    assert len(errors) == 3
+
+
+def test_concurrency_requires_grouped_overlapping_calls():
+    manifest = _execution_manifest_fixture()
+    assert _execution_claim_errors(manifest, {"concurrency"}) == []
+    manifest["calls"][1]["started_at"] = "2026-08-08T00:00:10Z"
+    assert any(
+        "concurrency" in error
+        for error in _execution_claim_errors(manifest, {"concurrency"})
+    )
+
+
+def test_ordering_requires_contiguous_indexes_and_nondecreasing_starts():
+    manifest = _execution_manifest_fixture()
+    assert _execution_claim_errors(manifest, {"ordering"}) == []
+    manifest["calls"][1]["sequence_index"] = 3
+    assert any(
+        "ordering" in error
+        for error in _execution_claim_errors(manifest, {"ordering"})
+    )
+
+
+def test_same_window_requires_declared_window_containing_all_calls():
+    manifest = _execution_manifest_fixture()
+    assert any(
+        "same_window" in error
+        for error in _execution_claim_errors(manifest, {"same_window"})
+    )
+    manifest["execution_window"] = {
+        "window_id": "dispatch-1",
+        "started_at": "2026-08-08T00:00:00Z",
+        "completed_at": "2026-08-08T00:00:15Z",
+    }
+    assert _execution_claim_errors(manifest, {"same_window"}) == []
 
 
 # ------------------------------------------------- reference resolution (R)

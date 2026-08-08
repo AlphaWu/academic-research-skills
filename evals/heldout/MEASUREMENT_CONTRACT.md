@@ -3,8 +3,8 @@
 Issues: #654 and #664. Machine artifacts: `measurement_report.schema.json`,
 `measurement_report.template.json`, `execution_manifest.schema.json`, and
 `suite_registry.json` (this directory). Enforcement:
-`scripts/check_heldout_measurement_report.py` — schema branches B1-B6,
-cross-field invariants I1-I14, reference-resolution checks R1-R5 (rubric,
+`scripts/check_heldout_measurement_report.py` — schema branches B1-B7,
+cross-field invariants I1-I15, reference-resolution checks R1-R5 (rubric,
 pre-registration plan, execution manifest, raw-output paths, and commit pins), and
 location binding L1 (a row filed under `evals/heldout/<dir>/` must declare
 `suite == <dir>`); mutation-tested by
@@ -35,9 +35,9 @@ grow a third — extend one of these.
 
 A new report opts in with `"measurement_contract": "heldout-measurement/1.1"`.
 Supported versions and the current template version are single-sourced from the
-schema enum. Version 1.0 remains accepted solely so already-frozen rows remain
-valid and byte-unchanged; no new decision-relevant row should select it. Version
-1.1 adds five linked controls: adjudication direction, judge-side blinding,
+schema enum. Version 1.0 is accepted only for the exact path and SHA-256 of the
+allowlisted frozen row; I15 rejects every new, moved, or modified 1.0 row.
+Version 1.1 adds five linked controls: adjudication direction, judge-side blinding,
 reserved design/arm vocabulary, a plan+rubric pre-registration record, and a
 hashed write-once execution manifest.
 
@@ -182,8 +182,10 @@ disclosure around the E4 machinery, it does not replace or reshape it.
   (`retained: const true`, non-empty paths per I7).
 - Version 1.1 freezes `resolution_direction` as `flags_only`,
   `bidirectional`, or `other_frozen`, plus a `resolution_rule_ref` into the
-  pre-registered rubric/plan. A run may not silently treat unflagged items as
-  outside adjudication and still publish a bidirectional point estimate.
+  pre-registered rubric/plan. `other_frozen` also records a substantive
+  `resolution_direction_note`; like `flags_only`, it publishes a visibly labeled
+  lower bound. A run may not silently treat unflagged items as outside
+  adjudication and still publish a point estimate.
 
 ## Version 1.1 pre-registration record
 
@@ -193,7 +195,8 @@ disclosure around the E4 machinery, it does not replace or reshape it.
   `rubric_sha256`; the rubric values must equal the adjudication record (I14);
 - `frozen_commit`, `frozen_before_dispatch: true`, and
   `rubric_and_plan_frozen_together: true`;
-- the exact `judge_template_version`;
+- the exact `judge_template_version` for judge-bearing suite classes (a
+  zero-judge `mechanical_match` row does not invent one);
 - `amendments_append_only: true` plus an append-ordered amendment ledger. An
   amendment never mutates the frozen plan or rubric; it names the change and,
   where applicable, the superseded hash.
@@ -206,15 +209,21 @@ actually preceded dispatch.
 
 Every 1.1 row references a suite-local strict-JSON manifest conforming to
 `execution_manifest.schema.json`. Each call records a stable call id, sequence
-index, start/completion timestamps, and SHA-256 hashes of the exact prompt and
-output; optional attempt and concurrency-group fields carry retry/concurrency
-context. Both the report reference and the manifest declare `write_once: true`.
+index, RFC-3339 start/completion timestamps, and SHA-256 hashes of the exact
+prompt and output; optional attempt and concurrency-group fields carry
+retry/concurrency context. A `same_window` claim additionally uses the manifest's
+closed `execution_window` record. Both the report reference and the manifest
+declare `write_once: true`.
 
 `execution_manifest.claims` enumerates `same_window`, `ordering`, and/or
 `concurrency` when the report makes those claims. I14 rejects recognized claims
-that are not declared; R5 verifies the manifest path is suite-local, its hash and
-schema match, ids/indexes are unique, and no call completes before it starts.
-Operator recollection alone is not evidence for these claims.
+that are not declared; negated prose does not create a claim. R5 verifies the
+manifest path is suite-local, its hash and schema match, ids/indexes are unique,
+and no call completes before it starts. It also requires at least two calls and
+machine-checkable support: contiguous/nondecreasing order for `ordering`, overlap
+inside one non-empty group for `concurrency`, and containment in the declared
+window for `same_window`. Operator recollection or a one-call manifest is not
+evidence for these claims.
 
 ## Version 1.1 design and arm vocabulary
 

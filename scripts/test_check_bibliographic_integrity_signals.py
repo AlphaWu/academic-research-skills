@@ -7,6 +7,7 @@ import shutil
 import sys
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft202012Validator
 
 
@@ -29,8 +30,12 @@ def _validator() -> Draft202012Validator:
     )
 
 
-def test_retraction_and_tortured_phrase_fixtures_round_trip() -> None:
-    for name in ("retraction.json", "tortured_phrase.json"):
+def test_all_epistemic_class_fixtures_round_trip() -> None:
+    for name in (
+        "retraction.json",
+        "retraction_check_attestation.json",
+        "tortured_phrase.json",
+    ):
         fixture = _fixture(name)
         assert not list(_validator().iter_errors(fixture))
         assert json.loads(json.dumps(fixture)) == fixture
@@ -89,6 +94,22 @@ def test_multiple_signals_compose_in_one_section_without_marker_token() -> None:
     assert "CONTAMINATED-" not in rendered
     assert "<!--ref:" not in rendered
     assert rendered.index("bis:jones2025") < rendered.index("bis:smith2024")
+    for heading in (
+        "source version",
+        "source sha256",
+        "checked at",
+        "recorded at",
+        "stale after",
+        "source pointer",
+    ):
+        assert heading in rendered
+
+
+def test_checked_but_unresolved_attestation_is_visibly_not_clean() -> None:
+    rendered = signals.render_advisory_section(
+        [_fixture("retraction_check_attestation.json")]
+    )
+    assert "| checked | NOT CLEAN — UNRESOLVED |" in rendered
 
 
 def _minimal_repo(tmp_path: Path) -> Path:
@@ -101,6 +122,7 @@ def _minimal_repo(tmp_path: Path) -> Path:
         "academic-pipeline/agents/pipeline_orchestrator_agent.md",
         "academic-paper/agents/formatter_agent.md",
         "scripts/fixtures/bibliographic_integrity_signals/retraction.json",
+        "scripts/fixtures/bibliographic_integrity_signals/retraction_check_attestation.json",
         "scripts/fixtures/bibliographic_integrity_signals/tortured_phrase.json",
     ]
     for relative in paths:
@@ -119,7 +141,7 @@ def test_sync_checker_detects_formatter_drift(tmp_path: Path) -> None:
     root = _minimal_repo(tmp_path)
     path = root / "academic-paper/agents/formatter_agent.md"
     text = path.read_text(encoding="utf-8").replace(
-        "**NOT\nCLEAN — UNRESOLVED**", "**CLEAN**"
+        "**NOT CLEAN — UNRESOLVED**", "**CLEAN**"
     )
     path.write_text(text, encoding="utf-8")
     found = checker.run_checks(root)
@@ -137,6 +159,32 @@ def test_existing_canonical_record_wins_idempotently() -> None:
         entry, recorded_at="2026-08-08T01:00:00Z"
     )
     assert migrated == [fixture]
+
+
+@pytest.mark.parametrize(
+    "existing",
+    [
+        [{}],
+        [{"signal_id": ""}],
+        [
+            {"signal_id": "bis:smith2024:retraction_status"},
+            {"signal_id": "bis:smith2024:retraction_status"},
+        ],
+    ],
+)
+def test_lossy_existing_carrier_is_rejected(existing: list[dict]) -> None:
+    entry = {
+        "citation_key": "smith2024",
+        "bibliographic_integrity_signals": existing,
+    }
+    with pytest.raises(ValueError):
+        signals.migrate_legacy_entry(entry, recorded_at="2026-08-08T01:00:00Z")
+
+
+def test_evidence_cannot_be_empty() -> None:
+    fixture = _fixture("retraction.json")
+    fixture["evidence"] = []
+    assert list(_validator().iter_errors(fixture))
 
 
 def test_handoff_source_id_projects_to_a_schema_safe_stable_signal_id() -> None:

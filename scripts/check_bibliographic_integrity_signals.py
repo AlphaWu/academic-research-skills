@@ -77,6 +77,13 @@ def run_checks(repo_root: Path) -> list[str]:
     fixture_types = {fixture.get("signal_type") for fixture in fixtures}
     if not {"retraction_status", "tortured_phrase_match"}.issubset(fixture_types):
         errors.append("fixtures must cover both #651 retraction and #660 tortured phrase")
+    fixture_classes = {fixture.get("epistemic_class") for fixture in fixtures}
+    if fixture_classes != {
+        "deterministic_fact",
+        "heuristic_advisory",
+        "process_attestation",
+    }:
+        errors.append("fixtures must cover all three epistemic classes")
     labels = {
         fixture.get("epistemic_class"): fixture.get("epistemic_label")
         for fixture in fixtures

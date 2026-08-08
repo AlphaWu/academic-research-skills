@@ -256,10 +256,27 @@ def migrate_legacy_entry(
 
     existing = entry.get("bibliographic_integrity_signals")
     by_id: dict[str, dict[str, Any]] = {}
+    if existing is not None and not isinstance(existing, list):
+        raise ValueError("bibliographic_integrity_signals must be an array")
     if isinstance(existing, list):
-        for signal in existing:
-            if isinstance(signal, dict) and isinstance(signal.get("signal_id"), str):
-                by_id[signal["signal_id"]] = copy.deepcopy(signal)
+        for index, signal in enumerate(existing):
+            if not isinstance(signal, dict):
+                raise ValueError(
+                    "bibliographic_integrity_signals"
+                    f"[{index}] must be an object"
+                )
+            signal_id = signal.get("signal_id")
+            if not isinstance(signal_id, str) or not signal_id.strip():
+                raise ValueError(
+                    "bibliographic_integrity_signals"
+                    f"[{index}] is missing a non-empty signal_id"
+                )
+            if signal_id in by_id:
+                raise ValueError(
+                    "duplicate bibliographic-integrity signal_id "
+                    f"{signal_id!r}; refusing a lossy migration"
+                )
+            by_id[signal_id] = copy.deepcopy(signal)
     for signal in projected:
         by_id.setdefault(signal["signal_id"], signal)
     return [by_id[key] for key in sorted(by_id)]
@@ -269,28 +286,44 @@ def render_advisory_section(signals: list[dict[str, Any]]) -> str:
     """Compose any number of signals in one provenance-summary section."""
     if not signals:
         return ""
+
+    def cell(value: Any) -> str:
+        if value is None or value == "":
+            return "—"
+        return str(value).replace("|", "\\|").replace("\n", " ")
+
     lines = [
         "## Bibliographic Integrity Advisories",
         "",
-        "| signal_id | citation | label | status | finding | freshness | claims |",
-        "|---|---|---|---|---|---|---|",
+        "| signal_id | citation | label | status | finding | source | source version | source sha256 | checked at | recorded at | stale after | freshness | source pointer | claims |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for signal in sorted(signals, key=lambda item: item["signal_id"]):
         status = signal["check_status"]
         finding = signal["finding"]
-        if status in {"not_checked", "unknown", "degraded"}:
+        if finding == "unresolved" or status in {"not_checked", "unknown", "degraded"}:
             finding = "NOT CLEAN — UNRESOLVED"
         claims = ", ".join(signal["subject"]["affected_claims"]) or "—"
+        provenance = signal["provenance"]
         lines.append(
             "| {signal_id} | {citation} | {label} | {status} | {finding} | "
-            "{freshness} | {claims} |".format(
-                signal_id=signal["signal_id"],
-                citation=signal["subject"]["citation_key"],
-                label=signal["epistemic_label"],
-                status=status,
-                finding=finding,
-                freshness=signal["provenance"]["freshness"],
-                claims=claims,
+            "{source} | {source_version} | {source_sha256} | {checked_at} | "
+            "{recorded_at} | {stale_after} | {freshness} | {source_pointer} | "
+            "{claims} |".format(
+                signal_id=cell(signal["signal_id"]),
+                citation=cell(signal["subject"]["citation_key"]),
+                label=cell(signal["epistemic_label"]),
+                status=cell(status),
+                finding=cell(finding),
+                source=cell(provenance["source_name"]),
+                source_version=cell(provenance["source_version"]),
+                source_sha256=cell(provenance["source_sha256"]),
+                checked_at=cell(provenance["checked_at"]),
+                recorded_at=cell(provenance["recorded_at"]),
+                stale_after=cell(provenance["stale_after"]),
+                freshness=cell(provenance["freshness"]),
+                source_pointer=cell(signal["subject"]["source_pointer"]),
+                claims=cell(claims),
             )
         )
     return "\n".join(lines) + "\n"

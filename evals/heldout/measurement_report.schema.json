@@ -28,7 +28,7 @@
         "heldout-measurement/1.0",
         "heldout-measurement/1.1"
       ],
-      "description": "Opt-in marker + contract version. The checker derives the supported versions and current template version from this enum. Frozen 1.0 rows remain valid; new decision-relevant rows use 1.1."
+      "description": "Opt-in marker + contract version. The checker derives supported/current versions from this enum; only the exact path+hash allowlisted frozen 1.0 row is accepted, and all new rows use 1.1."
     },
     "suite": {
       "type": "string",
@@ -396,6 +396,11 @@
           "type": "string",
           "minLength": 1,
           "description": "Anchor in the frozen rubric/plan that defines the resolution direction."
+        },
+        "resolution_direction_note": {
+          "type": "string",
+          "minLength": 20,
+          "description": "For other_frozen only: an explicit account of whether the frozen rule may add and/or remove flags and how the headline is interpreted."
         }
       },
       "allOf": [
@@ -436,6 +441,24 @@
           },
           "then": {
             "maxProperties": 1
+          }
+        },
+        {
+          "description": "other_frozen cannot hide its directional semantics.",
+          "if": {
+            "properties": {
+              "resolution_direction": {
+                "const": "other_frozen"
+              }
+            },
+            "required": [
+              "resolution_direction"
+            ]
+          },
+          "then": {
+            "required": [
+              "resolution_direction_note"
+            ]
           }
         }
       ]
@@ -493,11 +516,18 @@
         "frozen_commit",
         "frozen_before_dispatch",
         "rubric_and_plan_frozen_together",
-        "judge_template_version",
         "amendments_append_only",
         "amendments"
       ],
       "additionalProperties": false,
+      "dependentRequired": {
+        "rubric_ref": [
+          "rubric_sha256"
+        ],
+        "rubric_sha256": [
+          "rubric_ref"
+        ]
+      },
       "properties": {
         "plan_ref": {
           "type": "string",
@@ -861,6 +891,36 @@
             "required": [
               "rubric_ref",
               "rubric_sha256"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "B7: 1.1 judge-bearing suites freeze the exact judge-template version; mechanical suites with no judge do not invent one.",
+      "if": {
+        "properties": {
+          "measurement_contract": {
+            "const": "heldout-measurement/1.1"
+          },
+          "suite_class": {
+            "enum": [
+              "llm_judged",
+              "seeded_manifest_adjudicated",
+              "paired_controls"
+            ]
+          }
+        },
+        "required": [
+          "measurement_contract",
+          "suite_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "preregistration": {
+            "required": [
+              "judge_template_version"
             ]
           }
         }

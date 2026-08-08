@@ -181,11 +181,11 @@ or conditions].
 
 ### 8.2 IRB Review Levels
 
-| Review Level | Applicable Conditions | Review Timeline |
-|-------------|----------------------|-----------------|
-| **Exempt Review** | Public data, de-identified data, anonymous surveys (no sensitive topics) | 1-2 weeks |
-| **Expedited Review** | Minimal risk, non-vulnerable populations, general surveys/interviews | 2-4 weeks |
-| **Full Board Review** | Greater than minimal risk, vulnerable populations, sensitive topics, deception | 4-8 weeks |
+| Candidate pathway | Facts to prepare for institutional review | Timeline |
+|-------------------|-------------------------------------------|----------|
+| **Possible exempt pathway** | Public/de-identified data or anonymous, non-sensitive survey facts | Institution-specific; obtain current estimate |
+| **Possible expedited pathway** | Minimal-risk, population, survey/interview, and privacy facts | Institution-specific; obtain current estimate |
+| **Possible full-board pathway** | Risk, vulnerable-population, sensitive-topic, or deception facts | Institution-specific; obtain current estimate |
 
 - [ ] Candidate-pathway facts and unresolved questions have been prepared for institutional determination
 - [ ] The current institutional timeline has been requested; absent a dated institutional estimate, it is recorded as unknown

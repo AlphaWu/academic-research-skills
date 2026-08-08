@@ -161,12 +161,39 @@ def validate_passport(
             if signal_validator is not None:
                 signals = entry.get("bibliographic_integrity_signals", [])
                 if isinstance(signals, list):
+                    signal_ids: dict[str, int] = {}
                     for signal_i, signal in enumerate(signals):
                         for err in signal_validator.iter_errors(signal):
                             errors.append(
                                 f"{path}: literature_corpus[{i}]."
                                 f"bibliographic_integrity_signals[{signal_i}] "
                                 f"schema validation error: {err.message}"
+                            )
+                        if isinstance(signal, dict):
+                            signal_id = signal.get("signal_id")
+                            if isinstance(signal_id, str):
+                                signal_ids[signal_id] = signal_ids.get(signal_id, 0) + 1
+                            signal_citation = signal.get("subject", {}).get(
+                                "citation_key"
+                            ) if isinstance(signal.get("subject"), dict) else None
+                            entry_citation = entry.get("citation_key")
+                            if (
+                                isinstance(signal_citation, str)
+                                and isinstance(entry_citation, str)
+                                and signal_citation != entry_citation
+                            ):
+                                errors.append(
+                                    f"{path}: literature_corpus[{i}]."
+                                    f"bibliographic_integrity_signals[{signal_i}] "
+                                    f"targets citation_key {signal_citation!r}, not "
+                                    f"its containing entry {entry_citation!r}"
+                                )
+                    for signal_id, count in signal_ids.items():
+                        if count > 1:
+                            errors.append(
+                                f"{path}: literature_corpus[{i}]."
+                                "bibliographic_integrity_signals: duplicate "
+                                f"signal_id {signal_id!r} appears {count} times"
                             )
             vts = entry.get("venue_type_source", "")
             vtp = entry.get("venue_type_provenance", "")

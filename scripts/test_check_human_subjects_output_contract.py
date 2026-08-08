@@ -95,6 +95,18 @@ def test_universal_timeline_is_rejected(tmp_path: Path) -> None:
     assert contract.run_checks(root)
 
 
+def test_legacy_architect_output_template_is_rejected(tmp_path: Path) -> None:
+    root = mirror(tmp_path)
+    mutate(
+        root,
+        contract.ARCHITECT_AGENT,
+        "### Human-Subjects Administrative Status (if human subjects involved)",
+        "### IRB Plan (if human subjects involved)",
+    )
+    errors = contract.run_checks(root)
+    assert any("forbidden determination-shaped text" in error for error in errors)
+
+
 def test_decision_log_bytes_are_pinned(tmp_path: Path) -> None:
     root = mirror(tmp_path)
     mutate(root, contract.ETHICS_AGENT, "| Item | Verdict |", "| Item | Status |")

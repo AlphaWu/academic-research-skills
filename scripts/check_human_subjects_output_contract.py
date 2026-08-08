@@ -48,6 +48,11 @@ REQUIRED: dict[Path, tuple[str, ...]] = {
         "`authorization_status` (`documented | not_provided | cannot_verify`)",
         "Readiness never establishes or updates authorization.",
         "`unknown — obtain current institutional estimate`",
+        "### Human-Subjects Administrative Status (if human subjects involved)",
+        "- Review pathway: institutional determination required",
+        "- Submission readiness: [gaps_located / no_listed_gaps_located / unresolved]",
+        "- Authorization status: [documented / not_provided / cannot_verify]",
+        "- Review timeline: unknown — obtain current institutional estimate",
         FOOTER,
     ),
     DEEP_RESEARCH_SKILL: (
@@ -76,6 +81,9 @@ FORBIDDEN: dict[Path, tuple[str, ...]] = {
     ARCHITECT_AGENT: (
         "Determine Exempt/Expedited/Full Board",
         "IRB review timeline (2-8 weeks)",
+        "### IRB Plan (if human subjects involved)",
+        "IRB level: [Exempt / Expedited / Full Board]",
+        "IRB timeline: [estimated weeks]",
     ),
 }
 

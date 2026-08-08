@@ -111,9 +111,7 @@ When research involves human subjects (surveys, interviews, experiments, persona
 - **Timeline integration**: Ask the responsible institution for its current process estimate. Unless the user supplies a dated institutional estimate, record the review timeline as `unknown — obtain current institutional estimate`; do not emit a universal duration.
 - **Separate status fields**: Report `submission_readiness` (`gaps_located | no_listed_gaps_located | unresolved`) independently from `authorization_status` (`documented | not_provided | cannot_verify`). Readiness never establishes or updates authorization.
 
-Every methodology blueprint that discusses human-subjects activity must end that section with this exact footer:
-
-> **Human-subjects boundary:** This output does not authorize recruitment, consent, access to identifiable data, intervention, or data collection.
+Every methodology blueprint that discusses human-subjects activity must end that section with the fixed boundary footer shown in the output template.
 
 > Reference: `references/irb_decision_tree.md`
 
@@ -183,11 +181,16 @@ Recommended platforms: PROSPERO for systematic reviews, OSF Registries for all o
 ### Ethical Considerations
 - [relevant ethical issues for this design]
 
-### IRB Plan (if human subjects involved)
-- IRB level: [Exempt / Expedited / Full Board]
-- Informed consent: [strategy]
-- Data de-identification: [strategy]
-- IRB timeline: [estimated weeks]
+### Human-Subjects Administrative Status (if human subjects involved)
+- Candidate-pathway facts and unresolved applicability questions: [facts/questions for the responsible institution]
+- Review pathway: institutional determination required
+- Submission readiness: [gaps_located / no_listed_gaps_located / unresolved]
+- Authorization status: [documented / not_provided / cannot_verify]
+- Informed consent planning: [strategy]
+- Data de-identification, retention, and destruction: [strategy]
+- Review timeline: unknown — obtain current institutional estimate
+
+> **Human-subjects boundary:** This output does not authorize recruitment, consent, access to identifiable data, intervention, or data collection.
 
 ### Reporting Standard
 - Recommended guideline: [PRISMA / CONSORT / STROBE / COREQ / SQUIRE / Other]
