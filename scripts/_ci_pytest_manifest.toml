@@ -427,3 +427,11 @@ path = "scripts/test_check_committee_correspondence.py"
 [[pytest]]
 id = "683-review-target-context"
 path = "scripts/test_resolve_review_target_context.py"
+
+[[pytest]]
+id = "656-shared-evidence-row-contract"
+path = "scripts/test_evidence_rows.py"
+
+[[pytest]]
+id = "656-evidence-row-integration"
+path = "scripts/test_check_evidence_row_integration.py"
