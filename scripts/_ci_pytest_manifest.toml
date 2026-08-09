@@ -409,6 +409,14 @@ id = "666-human-subjects-authority"
 path = "scripts/test_resolve_human_subjects_authority.py"
 
 [[pytest]]
+id = "667-submission-packet-manifest"
+path = "scripts/test_build_submission_packet_manifest.py"
+
+[[pytest]]
+id = "667-submission-packet-integration"
+path = "scripts/test_check_submission_packet_manifest_integration.py"
+
+[[pytest]]
 id = "680-human-subjects-reference-migration"
 path = "scripts/test_check_human_subjects_reference_migration.py"
 

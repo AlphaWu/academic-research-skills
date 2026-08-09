@@ -263,6 +263,76 @@ JSON keys and non-finite numbers. Protocol:
 `shared/references/human_subjects_authority_protocol.md`. Spec:
 `docs/design/2026-08-09-666-human-subjects-authority-contract-spec.md`.
 
+## Human-subjects submission-packet manifest (#667)
+
+Two closed contracts define the deterministic packet layer:
+
+- `shared/contracts/human_subjects/submission_packet_inventory.schema.json` — an author-declared
+  list of exact packet-relative files, byte digests, evidence bindings, responsible
+  holder roles, declared structure metadata, waiver/exception claims, and
+  caller-supplied authorization status; and
+- `shared/contracts/human_subjects/submission_packet_manifest.schema.json` — the pointer-only,
+  replay-bound result with five structural status tokens, exact requirement and
+  evidence pointers, independent #665 readiness/authorization fields, and the
+  fixed non-authorization boundary.
+
+The checker consumes a #666 authority result only after exact replay against its
+named context and registry. It filters to `submission_packet` consumer rows and
+uses only `evidence_expected` ids, artifact types, and holders. It never evaluates
+or copies `structured_expectations`, descriptions, or attachment prose; exact
+whole-row bytes are canonical-hashed only for replay integrity. It never infers a
+jurisdiction, grants a waiver, verifies institutional acceptance, or updates the
+caller-supplied authorization value. An evidence row is packet-owned only when
+both its exact obligated actor and exact expected holder occur in the declared
+packet-responsibility roles. Declared version, date, signature, and certificate
+metadata is syntax/internal-consistency only unless a separately versioned,
+source-backed mechanical expectation exists.
+Once the authority and capability gates permit packet observation, every
+inventoried path retains a `DOCUMENTED` or `CONFLICTING` row for
+declared-vs-attached visibility, including extra files not consumed by the
+selected profiles. A closed gate leaves observations empty and does not open the
+packet root. Observation status alone does not change readiness; only an
+applicable packet-owned evidence entry can create a listed packet gap.
+The runtime rejects more than 512 copied consumer scopes, more than 4,096 entry
+or exclusion rows, and any final canonical manifest larger than 8 MiB, ensuring
+that every successful build can be replayed by the same CLI.
+
+Build, replay-validate, or render a manifest offline with:
+
+```bash
+python scripts/build_submission_packet_manifest.py build \
+  --inventory inventory.json \
+  --packet-root packet \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json \
+  --output submission-packet-manifest.json
+
+python scripts/build_submission_packet_manifest.py validate \
+  --manifest submission-packet-manifest.json \
+  --inventory inventory.json \
+  --packet-root packet \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json
+
+python scripts/build_submission_packet_manifest.py render \
+  --manifest submission-packet-manifest.json \
+  --inventory inventory.json \
+  --packet-root packet \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json
+```
+
+The authority triplet is all-or-none. An intentionally absent triplet produces an
+unresolved manifest without a default profile; a partial or mismatched triplet is
+a contract error. `render` requires the same inputs and exact replay, so a
+self-consistent but forged manifest digest is insufficient.
+
+Protocol: `shared/references/submission_packet_manifest_protocol.md`. Spec:
+`docs/design/2026-08-09-667-submission-packet-manifest-spec.md`.
+
 ## Audit artifact contracts (v3.6.7 Step 6)
 
 The `audit/` directory carries the three wrapper-emitted artifact schemas that pair
