@@ -269,8 +269,24 @@ quote, excerpt, or legal conclusion.
 
 ## #681 handoff
 
-#681 consumes only a replay-validated manifest plus its exact inventory and
-separately session-held content. It treats `DOCUMENTED` as a structural signal,
-not coverage. Its output must carry `LLM-ADVISORY` and a separate
-`advisory_coverage_status`; it may not update any deterministic status, readiness,
-authorization, acceptance, pointer, or digest field.
+#681 consumes only a manifest that first passes
+`validate_submission_packet_manifest(...)` against the exact inventory, packet
+root, context, registry, and resolved artifact, plus separately and explicitly
+session-held content keyed by matched artifact id. Its finalizer is
+`scripts/build_content_coverage_advisory.py`, and its closed carrier/protocol are
+`shared/contracts/human_subjects/content_coverage_advisory.schema.json` and
+`shared/references/authority_content_coverage_advisory_protocol.md`.
+
+The advisory groups exact requirement refs without merging parallel
+authorities, copies every deterministic entry ref, and dereferences only the
+matching replay-bound `structured_expectations[]` rows. `DOCUMENTED` remains a
+structural signal, not content coverage. A packet gap, external-holder row,
+waiver/exception boundary, or applicability-false exclusion cannot be converted
+into a semantic missing-element finding.
+
+The output must carry `LLM-ADVISORY`, a separate
+`advisory_coverage_status`, and `evaluation_status=UNMEASURED`. It may not update
+any deterministic status, readiness, authorization, acceptance, pointer, or
+digest field. Missing or unavailable session content is an explicit
+`not_checked` result with null advisory status, never a fabricated
+`NOT_LOCATED`. UNMEASURED is not a scored measurement row or an efficacy claim.

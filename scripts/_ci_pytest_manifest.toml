@@ -417,6 +417,14 @@ id = "667-submission-packet-integration"
 path = "scripts/test_check_submission_packet_manifest_integration.py"
 
 [[pytest]]
+id = "681-content-coverage-advisory"
+path = "scripts/test_content_coverage_advisory.py"
+
+[[pytest]]
+id = "681-content-coverage-integration"
+path = "scripts/test_check_content_coverage_advisory_integration.py"
+
+[[pytest]]
 id = "680-human-subjects-reference-migration"
 path = "scripts/test_check_human_subjects_reference_migration.py"
 

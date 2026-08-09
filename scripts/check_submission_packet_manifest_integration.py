@@ -80,6 +80,19 @@ FORBIDDEN_SCAN_CALLS = {
     "fwalk",
 }
 FORBIDDEN_REGISTRY_READS = {"description", "structured_expectations"}
+REPLAY_CONTRACT_SNIPPETS = {
+    PACKET_PROTOCOL: (
+        "Before accepting or rendering a serialized manifest, call\n"
+        "`validate_submission_packet_manifest`"
+    ),
+    ETHICS_AGENT: (
+        "replay-validated with `validate_submission_packet_manifest("
+        "manifest, inventory, packet_root,"
+    ),
+    ARCHITECT: (
+        "confirms a successful `validate_submission_packet_manifest(...)` replay"
+    ),
+}
 
 
 class DuplicateKeyError(ValueError):
@@ -308,6 +321,14 @@ def run_checks(root: Path) -> list[str]:
         for token in tokens:
             if token not in text:
                 errors.append(f"{rel}: missing #667 contract pointer/text {token!r}")
+
+    # Pin the primary #667 replay instruction in its owning paragraph. A later
+    # downstream handoff may legitimately name the same function, but that
+    # unscoped duplicate must not mask deletion of the normative instruction.
+    for rel, snippet in REPLAY_CONTRACT_SNIPPETS.items():
+        text = texts.get(rel)
+        if text is not None and snippet not in text:
+            errors.append(f"{rel}: missing primary #667 replay-contract instruction")
 
     architect = texts.get(ARCHITECT)
     mirror = texts.get(ARCHITECT_MIRROR)
