@@ -547,14 +547,27 @@ or an active link.
 
 ## 8. #681 handoff
 
-The manifest is a pointer-only deterministic input to #681. #681 may consume a
-replay-validated manifest, its exact inventory, and separately session-held
-packet content. It may not treat `DOCUMENTED` as semantic coverage.
+The manifest is a pointer-only deterministic input to #681. The #681 finalizer
+must first repeat `validate_submission_packet_manifest(...)` with the exact
+inventory, packet root, context, registry, and resolved artifact; schema shape
+or a self-consistent digest alone is insufficient. Only after replay may it
+join separately session-held packet content by an exact matched artifact id and
+dereference replay-bound `structured_expectations[]` rows. It may not treat
+`DOCUMENTED` as semantic coverage.
 
-#681 must label its own result `LLM-ADVISORY` and use a separate
-`advisory_coverage_status` field. It may not overwrite the manifest status,
-submission readiness, authorization input, acceptance boundary, or manifest
-digest. No verdict field is shared between the layers.
+The versioned output is defined by
+`shared/contracts/human_subjects/content_coverage_advisory.schema.json` and
+`shared/references/authority_content_coverage_advisory_protocol.md`. It labels
+its own result `LLM-ADVISORY`, uses a separate
+`advisory_coverage_status`, and copies each exact deterministic entry ref. It
+may not overwrite the manifest status, submission readiness, authorization
+input, acceptance boundary, pointer, or manifest digest. Applicability-false
+requirements remain exclusions, and structural gaps, external dependencies, or
+waiver/exception boundaries cannot be relabeled as missing content. No verdict
+field is shared between the layers.
+
+The carrier remains `evaluation_status=UNMEASURED` until a real held-out scored
+row exists. This marker is not itself a measurement record or efficacy claim.
 
 ## 9. Acceptance matrix
 

@@ -228,6 +228,14 @@ digest-to-input binding, and gate derivation.
   `structured_expectations` or an evidence description; exact whole-row bytes are
   canonical-hashed only for replay integrity. Content-coverage questions belong
   to #681.
+- #681 consumes authority rows only through a #667 manifest that has first been
+  replay-validated against this same context/registry/resolved triplet and its
+  exact packet inventory/root. It may then dereference exact
+  `structured_expectations[]` pointers and join separately session-held content
+  through `shared/references/authority_content_coverage_advisory_protocol.md`.
+  Its carrier is always `LLM-ADVISORY` and `UNMEASURED`; it cannot alter
+  applicability, deterministic packet status, readiness, caller authorization,
+  institutional acceptance, or any authority pointer/digest.
 - #668 remains valid in `artifact_agnostic` mode and no profile may rewrite its
   source correspondence or committee authority.
 - #669 may later consume requirement and authority-anchor pointers for a rule

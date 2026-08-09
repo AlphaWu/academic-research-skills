@@ -197,6 +197,19 @@ Integrity Report renders the exact fixed legacy label with exit 0 only when the
 caller adds `--allow-legacy-absence`; `validate` always rejects the absence.
 Current producers may never use the compatibility flag.
 
+`shared/contracts/evidence/evidence_row_v1_1.schema.json` is the separately
+versioned extension for `surface: authority_profile_content_coverage` (#681).
+It replaces Phase E claim/verdict fields with exact authority-requirement,
+structured-expectation, packet-artifact, and document-locator bindings. Its
+states are `agent_extracted`, `checked_no_match`, `not_checked`,
+`source_missing`, `access_failed`, and `retrieval_failed`; they describe only
+the provenance or absence of one bounded advisory passage. The shared 25-word,
+1,000-code-point, strict once-decode, exact UTF-8 replay, inert rendering,
+rights, and human-read-ledger boundaries still apply. V1.1 performs no cache
+lookup. `scripts/evidence_rows.py` exposes `build_advisory(...)` for this
+surface, while the existing `evidence-row/1.0` builder and rendered bytes remain
+unchanged. The versioned surfaces cannot be mixed in one page.
+
 ## Human-subjects correspondence contract (#668)
 
 `human_subjects/committee_correspondence.schema.json` defines the standalone
@@ -332,6 +345,45 @@ self-consistent but forged manifest digest is insufficient.
 
 Protocol: `shared/references/submission_packet_manifest_protocol.md`. Spec:
 `docs/design/2026-08-09-667-submission-packet-manifest-spec.md`.
+
+## Authority-profile content-coverage advisory (#681)
+
+`shared/contracts/human_subjects/content_coverage_advisory.schema.json` defines
+the closed final `content-coverage-advisory/1.0` carrier. It consumes a #667
+manifest only after exact replay against the named inventory, packet root,
+#666 context, authority registry, and resolved context. It then binds explicit
+evaluator judgments to exact `structured_expectations[]` pointers and exact
+session-held artifact strings through `evidence-row/1.1` rows. The standard
+library finalizer is `scripts/build_content_coverage_advisory.py`.
+
+The output layer is always `LLM-ADVISORY`, and its independent field is
+`advisory_coverage_status`. The finalizer copies deterministic packet status,
+readiness, caller-supplied authorization, institutional-acceptance boundary,
+authority/evidence pointers, and digests without changing them. A structural
+gap, external dependency, or waiver/exception boundary cannot be converted into
+a semantic missing-element finding. Applicability-false requirements remain
+excluded, and every profiled structured expectation is either explicitly
+checked or explicitly `not_checked`; missing session content never becomes an
+implicit negative result.
+An open authority/capability gate with an explicitly unprovided overlay
+selection preserves each selected base requirement as
+`APPLICABILITY_UNRESOLVED` without inspecting content; a fully closed gate has
+no exact requirement to report and is rejected.
+
+The final carrier is deliberately marked `evaluation_status: UNMEASURED`.
+UNMEASURED is not a scored measurement row, and this feature makes no accuracy,
+coverage-improvement, or efficacy claim. The finalizer and renderer open only
+named inputs, perform no directory scan or retrieval, and invoke no model/API;
+the draft judgments and positive-row capture timestamps are caller-supplied
+advisory observations. Rendering first replays the deterministic manifest and
+every source-bound evidence row, so a self-consistent digest alone is
+insufficient. The carrier retains all rows, while one render call exposes only
+one explicit page of at most 25 evidence rows with deterministic navigation;
+there is no render-all mode.
+
+Protocol:
+`shared/references/authority_content_coverage_advisory_protocol.md`. Spec:
+`docs/design/2026-08-09-681-authority-content-coverage-advisory-spec.md`.
 
 ## Audit artifact contracts (v3.6.7 Step 6)
 

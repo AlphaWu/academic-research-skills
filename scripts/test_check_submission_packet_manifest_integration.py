@@ -71,6 +71,27 @@ def test_required_pointer_or_replay_text_removal_fails(
 
 
 @pytest.mark.parametrize(
+    ("rel", "snippet"),
+    sorted(check.REPLAY_CONTRACT_SNIPPETS.items(), key=lambda row: str(row[0])),
+)
+def test_unscoped_duplicate_cannot_mask_primary_replay_contract(
+    tree: Path, rel: Path, snippet: str
+) -> None:
+    path = tree / rel
+    text = path.read_text(encoding="utf-8")
+    assert snippet in text
+    path.write_text(
+        text.replace(snippet, "removed-primary-replay-contract", 1)
+        + "\n<!-- shadow validate_submission_packet_manifest token -->\n",
+        encoding="utf-8",
+    )
+    assert any(
+        str(rel) in error and "missing primary #667 replay-contract" in error
+        for error in _errors(tree)
+    )
+
+
+@pytest.mark.parametrize(
     "field",
     [
         "verdict",
