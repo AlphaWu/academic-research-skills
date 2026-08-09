@@ -83,6 +83,7 @@ VERDICTS = frozenset(
 CACHE_STATUSES = frozenset({"not_used", "miss", "hit"})
 SHARING_SCOPES = frozenset({"session_only", "user_confirmed_shareable"})
 RIGHTS_BASES = frozenset({"not_assessed", "user_declared_authorized"})
+MAX_JSON_NESTING = 100
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _REF_SLUG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_:-]*$")
@@ -1065,10 +1066,42 @@ def _no_duplicate_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _reject_excessive_json_nesting(text: str, path: Path) -> None:
+    """Apply one parser-independent nesting limit before strict JSON decoding."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > MAX_JSON_NESTING:
+                _input_fail(
+                    str(path),
+                    (
+                        "cannot read strict JSON: nesting depth exceeds "
+                        f"{MAX_JSON_NESTING}"
+                    ),
+                )
+        elif character in "]}" and depth:
+            depth -= 1
+
+
 def _load_json(path: Path) -> Any:
     try:
+        text = path.read_text(encoding="utf-8")
+        _reject_excessive_json_nesting(text, path)
         return json.loads(
-            path.read_text(encoding="utf-8"),
+            text,
             object_pairs_hook=_no_duplicate_object,
             parse_constant=lambda token: _input_fail("JSON", f"non-finite number {token!r} is forbidden"),
         )

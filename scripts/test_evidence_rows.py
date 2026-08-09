@@ -1970,6 +1970,18 @@ def test_cli_deeply_nested_json_is_clean_input_error_without_traceback(
     assert "Traceback" not in result.stderr
 
 
+def test_cli_json_nesting_limit_ignores_delimiters_inside_strings(
+    tmp_path: Path,
+) -> None:
+    _runtime_required()
+    bracket_text = tmp_path / "brackets-in-string.json"
+    bracket_text.write_text(json.dumps("[" * 2000 + "]" * 2000), encoding="utf-8")
+    result = _run_cli("validate", bracket_text)
+    assert result.returncode == 1
+    assert "nesting depth exceeds" not in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_cli_five_thousand_digit_integer_is_clean_input_error_without_traceback(
     tmp_path: Path,
 ) -> None:
