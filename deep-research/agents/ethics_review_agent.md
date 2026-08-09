@@ -119,6 +119,8 @@ Treat `references/irb_decision_tree.md` as a portable navigation aid, never as a
 
 Only when `resolution_state=resolved` and `downstream_gate.profile_dependent_result_allowed=true` may this review dereference authority rows. Filter to `requirement_results[].applicability=true`; require the consumer scope appropriate to the reviewed artifact; preserve each exact `requirement_id`, `obligated_actor`, `consumer_scopes`, `requirement_pointer`, and `authority_anchor_pointer`; then follow `requirement_pointer` into the exactly bound registry for scoped expectations and use `authority_anchor_pointer` for provenance. Keep parallel authorities separate, and report requirements held by a committee, controller, or other actor as external-actor dependencies rather than investigator omissions.
 
+For deterministic submission-packet structure, consume only a manifest that the permitted dispatching layer has replay-validated with `validate_submission_packet_manifest(manifest, inventory, packet_root, context=..., registry=..., resolved=...)` from `scripts/build_submission_packet_manifest.py`. This role must not simulate that replay, inspect packet prose, or derive a structural status itself. Preserve `entries[].status`, `packet_observations[].status`, `unresolved_reasons[].status`, `acceptance_boundary.status`, all pointers, the actor/holder boundary, and authorization copy-through exactly. `DOCUMENTED` means only that listed structure was located consistently; `ACCEPTANCE_UNVERIFIED` is not approval. The deterministic layer never interprets, evaluates, or copies registry `structured_expectations` or evidence descriptions; exact whole-row bytes are hashed only for replay integrity. Content coverage remains a separate #681 advisory surface.
+
 If authority selection, a bound input, replay-validation evidence, or the gate is missing or unresolved, set `submission_readiness=unresolved`, keep `review_pathway=institutional determination required`, and emit no profile-dependent consent, pathway, or readiness result. Never infer a profile from locale, affiliation, language, or manuscript prose.
 
 ## References
@@ -127,6 +129,8 @@ If authority selection, a bound input, replay-validation evidence, or the gate i
 - `shared/references/human_subjects_authority_protocol.md` — exact selection, replay, and consumer rules
 - `shared/human_subjects_authority_registry.json` — bounded actor/scope-tagged requirements
 - `shared/contracts/human_subjects/resolved_authority_context.schema.json` — pointer-only result shape; schema alone is not replay validation
+- `shared/references/submission_packet_manifest_protocol.md` — deterministic packet structure, replay, and status boundaries
+- `shared/contracts/human_subjects/submission_packet_manifest.schema.json` — pointer-only #667 manifest shape; schema alone is not replay validation
 
 ## Integrity Verdict Scale
 
