@@ -1,6 +1,6 @@
 # #655 Search-bounded claim-standing probe design freeze
 
-> **Status:** DESIGN-FROZEN / NOT IMPLEMENTED / NOT MEASURED
+> **Status:** DESIGN-FROZEN / TRACK A SUBSTRATE IMPLEMENTED / LIVE PROBE NOT IMPLEMENTED / NOT MEASURED
 > **Issue:** #655
 > **Shared evidence-row authority:** #656,
 > `docs/design/2026-08-09-656-shared-evidence-row-contract-spec.md`
@@ -29,10 +29,31 @@ candidate population. The stance classifier cannot add, remove, reorder, or
 replace candidates. A presentation layer cannot omit a candidate or failure
 because it makes the result less convenient.
 
-This document does not add a live adapter, schema, stage, flag, prompt, held-out
-suite, or report row. It authorizes no external search, model or judge call, and
-makes no accuracy or efficacy claim. #655 stays open through implementation and
+The original design freeze added no live adapter, schema, stage, flag, prompt,
+held-out suite, or report row. The offline implementation status recorded below
+does not authorize an external search, model, or judge call and makes no
+accuracy or efficacy claim. #655 stays open through implementation and
 measurement.
+
+### Implementation status (2026-08-13)
+
+The first offline Track A substrate now implements three closed Draft 2020-12
+contracts (`claim-standing-query-plan/1.0`,
+`claim-standing-retrieval-input/1.0`, and
+`claim-standing-candidate-ledger/1.0`) plus a pure deterministic finalizer.
+Synthetic fixtures and mutation tests pin the complete consentable-plan
+projection, one visible root attempt per planned query/index pair, hash-bound
+and time-bounded retry authorization, monotonic attempt/hit timestamps, attempt
+and raw-hit preservation, ordered filtering, work-family deduplication without
+no-DOI bridges between distinct DOI components, canonical selection, explicit
+relevance success/failure evidence, the 240/40 caps, and write-once exact replay.
+
+This is not activation of the probe. The substrate accepts only already-retained
+adapter-neutral local JSON and performs no retrieval, network, model, stance,
+rendering, pipeline, evidence-row, or dispatch operation. Existing resolver
+clients remain byte-pinned and unchanged. Track B, live discovery adapters,
+evidence-row 1.3 work, pipeline wiring, independent expert ground truth, and the
+baseline measurement row remain future work.
 
 ## 2. Placement and noninterference
 
@@ -153,7 +174,10 @@ append-only local plan ledger.
 Each discovery adapter implements one closed request/response interface and
 declares its index id, API/product identity, query capability, returned metadata,
 abstract availability, pagination behavior, terms/retention reference, and
-failure vocabulary. An adapter cannot fall through to a different index.
+failure vocabulary. A `known` retention state requires a non-empty reference;
+an explicit `unknown` state requires a null reference, so the surface cannot
+claim known terms while withholding them. An adapter cannot fall through to a
+different index.
 
 Version 1 ceilings are:
 
@@ -206,6 +230,13 @@ Deduplication groups records by the first available deterministic key:
 3. normalized title plus publication year and first-author family name; then
 4. normalized title plus a researcher-confirmed version-family relation.
 
+A DOI participates in minimum identity, canonical preference, or equality only
+after NFKC normalization and known-prefix trimming, and only when the remainder
+matches `10.<4-9 ASCII digits>/<suffix>`. The suffix must contain a Unicode
+letter or number and must contain no Unicode control/format/surrogate,
+separator, or whitespace character. Invalid provider DOI text stays retained
+as raw metadata but is treated as no DOI and can never create a union.
+
 Title normalization is Unicode NFKC, case-folding, punctuation-to-space, and
 ASCII-whitespace collapse. It is a grouping candidate, not proof of identity.
 Ambiguous groups stay separate unless the researcher confirms the relation.
@@ -226,8 +257,10 @@ relevance = relevant | not_relevant | ambiguous | not_checked
 ```
 
 A future relevance assessor sees only the exact claim and candidate title plus
-abstract when available. Its prompt/version, raw output, rationale, and failure
-are retained. `not_relevant` requires a recorded reason anchored to population,
+abstract when available. A canonical assessment-input digest binds that exact
+claim, candidate content, and assessor contract; the exact UTF-8 prompt and its
+digest, version, raw output, rationale, and failure are retained. `not_relevant`
+requires a recorded reason anchored to population,
 phenomenon/exposure, outcome, or proposition mismatch. `ambiguous` remains
 eligible; a missing abstract is not enough to declare a record irrelevant.
 
@@ -255,12 +288,15 @@ outside_language_set
 outside_document_type
 duplicate_version
 not_relevant
+not_checked
 candidate_cap_exceeded
 retrieval_failed
 ```
 
 `duplicate_version` points to the retained work-family id. Retrieval failures
-are attempt rows rather than fabricated source rows. `selected` does not mean
+are attempt rows rather than fabricated source rows. `not_checked` preserves a
+relevance-assessment failure with its retained raw output, if any, and explicit
+failure evidence; it never implies irrelevance. `selected` does not mean
 supportive, credible, high-quality, or cited. A candidate cannot disappear
 between retrieval, classification, and rendering.
 
@@ -422,10 +458,36 @@ Query redaction is allowed but visible in the search metadata. A provider that
 cannot disclose its identity or retention state is rendered as `unknown`; that
 does not become implied privacy assurance.
 
-Local artifacts default to `session_only + not_assessed`. Export requires an
-explicit rights/share decision and redaction of unpublished claim text where
-requested. Deletion removes local working copies but does not claim to erase a
-provider's records unless a confirmed provider receipt exists.
+Local artifacts default to `session_only + not_assessed`. The Track A CLI
+refuses `build --output` before path creation while the hash-bound consent says
+`session_only`; a persistent ledger requires the existing
+`explicit_local_export` consent state and has no command-line override. Export
+to the named local path requires that exact consent state; any onward sharing
+requires a separate rights/share decision and redaction of unpublished claim
+text where requested. Deletion removes local working copies but does not claim
+to erase a provider's records unless a confirmed provider receipt exists.
+The consent receipt binds the exact absolute `authorized_output_path`, and the
+CLI rejects any relative or non-matching output string before creating a path,
+so the same receipt cannot be retargeted by changing the working directory. The exporter
+creates the final path exclusively, refuses symlink following on
+supported non-Windows hosts, applies mode `0600` from creation under umask
+`022`, and fsyncs the file and parent directory before reporting success. The
+final ledger copies `local_persistence`, `export_boundary`, and the authorized
+path from the consent receipt and uses the same persistence value for each work family's
+`sharing_scope`; a persisted export is not labeled `session_only`.
+The independent `rights_basis=not_assessed` label remains unchanged because
+local persistence authority does not establish publication, redistribution, or
+provider rights.
+
+Portable schema `\\S` checks are only a first screen. The Track A runtime uses
+one NFKC visible-semantic-text predicate for claims, queries, provider
+disclosures/retention references, consent boundaries, non-null provider ids,
+titles/authors, available abstracts, successful assessment rationale/raw
+output, and failure detail. It rejects surrogates and strings made only of
+Unicode control/format, separator, combining, whitespace, or punctuation
+characters. A failed malformed assessment may retain whitespace-only or
+format-only raw output exactly; this exception never applies to its failure
+detail.
 
 ## 7. Failure, freshness, and revision behavior
 
@@ -557,7 +619,9 @@ adapter boundary, user-visible candidate population, caps and deterministic
 selection, separate relevance/stance/failure states, distribution denominator,
 #656 ownership, search-bounded output vocabulary, and mandatory baseline gate.
 
-It does not close #655. Closure still requires the live contracts and adapters,
-synthetic acceptance coverage, a frozen held-out set, independently labeled
-ground truth, a valid baseline stance-classification measurement row, and docs
-whose claims do not exceed that row.
+It does not close #655. Closure still requires live discovery adapters, Track B
+and pipeline integration, a frozen held-out set, independently labeled ground
+truth, a valid baseline stance-classification measurement row, and docs whose
+claims do not exceed that row. The offline Track A contracts, deterministic
+finalizer, and synthetic acceptance coverage are implemented but do not satisfy
+those activation gates by themselves.
