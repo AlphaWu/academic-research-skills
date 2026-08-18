@@ -8,7 +8,7 @@ Full pipeline view across stages × skills × artifacts × gates. Every complete
 - **Matrix** (§3): the only place where (stage × skill × mode × data_level × artifacts × agents × gate) all co-exist. Use this when asking "what happens at Stage X?" The Gate column lists both machine checks and the user-confirmation checkpoint that closes the stage.
 - **Data access flow** (§4) and **skill graph** (§6): orthogonal views answering "who sees what" and "who depends on what" respectively.
 - **Literature corpus flow** (§5): producer/consumer view of the optional Material Passport `literature_corpus[]` input port (v3.6.4) and Phase 1 consumer integration (v3.6.5).
-- **Quality gates** (§7): zoom on the blocking checks — both machine-enforced and human-enforced.
+- **Quality gates** (§7): zoom on the blocking checks — both machine-enforced and human-enforced. §7.1 classifies the repo's CI workflows by enforcement strength (blocking / advisory / administrative / post-push detection).
 - **Timeline** (§8): why the architecture looks the way it does — each release added one honesty primitive or a new contract.
 - **Modes** (§9): reference when composing a pipeline invocation.
 
@@ -267,6 +267,51 @@ Two classes of gate: **🧑 decision-heavy** (user chooses a branch or approves 
 | Model tiering (v3.16.0, opt-in) | 🤖 (dispatch layer) | All stages (agent dispatch) | **Never blocks.** Opt-in via `ARS_MODEL_TIERING=economy\|quality-boost`. `economy` (frontier-tier session): the 13 execution-type agents dispatch one tier below the session model, floor Opus-class. `quality-boost` (below-frontier session): judgment-type agents at the Stage 2.5/4.5 integrity gates and final-review surfaces step up to the frontier tier; nothing is ever downgraded. Tiers are relative positions, never hard-pinned model ids. Frozen 39-agent classification (26 judgment / 13 execution) in `scripts/model_tiering_manifest.json` + `shared/model_tiering.md`, pinned to each other and to the agent files by `scripts/check_model_tiering.py`. | Unset = byte-equivalent pre-#517 behaviour; unknown value warns once and behaves as unset (fail-open to the safe default) |
 | Stage 5/6 boundary semantics (v3.17.0) | 🤖 + 🧑 | 5 (entry gate), 6 (terminal checkpoint) | Stage 5's "before finalization: always MANDATORY" names exactly one checkpoint — the entry gate between Stage 4.5 PASS and Stage 5 dispatch. Stage 6 gains a defined Stage 5→6 transition, a non-mandatory decline path, a terminal checkpoint after the Process Record is delivered, and canonical terminal-acknowledgement vocabulary (`finish`/`end`/`done`/`confirm`) that sets pipeline global state to `completed`. All five pipeline surfaces (`academic-pipeline/SKILL.md`, `agents/pipeline_orchestrator_agent.md`, `agents/state_tracker_agent.md`, `references/pipeline_state_machine.md`, `references/process_summary_protocol.md`) carry whole-file sha256 content locks in `scripts/check_pipeline_boundary_semantics.py` (66 mutation tests). | Any byte change to a locked surface fails CI until the pinned hash is updated in the same commit |
 | Cross-model handoff envelope (v3.17.0) | 🤖 (dispatch layer) | Design freeze (1), Final editorial decision (3), DA critique (3) | Canonical `[CROSS-MODEL-HANDOFF v1]` envelope + normative Python grammar (`scripts/cross_model_handoff.py`) for the #523 owner→dispatcher→owner transport path. Malformed envelope/result → `[CROSS-MODEL-ERROR]` → outcome `unavailable`, never a fabricated judgment; agreement → mechanical fill with no owner re-invocation; divergence → re-invoke the owner with minimum context. `scripts/check_cross_model_handoff_contract.py` pins the contract across all five surfaces. | `ARS_CROSS_MODEL` unset stays byte-equivalent; malformed transport degrades to `unavailable`, never silently treated as a deliverable |
+
+### 7.1 CI workflow enforcement classes (#755)
+
+The files under `.github/workflows/` are often described collectively as CI gates, but
+they enforce at four different strengths (origin: ISO/IEC 42001-spirit gap assessment,
+finding T-5).
+
+Classes: **Blocking** — a failure on the guarded event must be fixed (or explicitly
+bypassed) before proceeding · **Advisory** — the audited condition warns, never fails ·
+**Administrative** — produces work items, audits nothing · **Post-push detection** —
+triggered by a tag push that has already happened; nothing in GitHub Actions can
+reject a push after the fact, so a failure is a remediation signal, not prevention
+(the three tag-only workflows are conventionally *called* release gates; their
+stop-power is the maintainer acting on the failure).
+
+One GitHub Actions subtlety the Trigger column accounts for: an unfiltered or
+paths-only `push:` trigger ALSO matches tag pushes — GitHub does not evaluate `paths`
+filters for tags — so `spec-consistency`, `command-invariants`, and `freshness-check`
+additionally run on every `v*` tag push, where their failures are post-push detection
+exactly like the three tag-only workflows.
+
+| Workflow | Trigger | What it checks | Class | Bypass |
+|---|---|---|---|---|
+| `spec-consistency.yml` | push (all branches **and tags**) + PR | the full lint/pytest battery: spec surfaces, contracts, content locks, the pytest manifest | Blocking | none |
+| `pytest.yml` | PR + push to main, both path-filtered (scripts/tests/contracts/config, adapter references, `bibliography_agent`) | adapter + script test suite | Blocking | none |
+| `command-invariants.yml` | push (path-filtered for branch pushes; **also every tag push**) + PR (all) | SessionStart announce list matches the command inventory; plugin-version ↔ CHANGELOG lockstep; command frontmatter `name` validation | Blocking | none |
+| `repository-hygiene.yml` | PR targeting main + push to main | gitleaks secret scan | Blocking | none |
+| `eval-harness.yml` | PR + push to main, both path-filtered (scoring/generation surfaces + gold sets) | eval gold-set thresholds (aggregate + per-class) | Blocking on `pull_request` events only; report-only on push | `[eval-regression-acknowledged]` in the PR body + ≥1 open tracking-issue URL in this repo |
+| `test-count-monotonic.yml` | PR targeting main | collected test count must not drop | Blocking | `[skip-test-count]` in the PR body (justification requested, not machine-validated) |
+| `pr-closes-issue.yml` | PR targeting main | PR body references an issue via an auto-close keyword | Blocking | `[skip-closes-check]` in the PR body (justification requested, not machine-validated) |
+| `changelog-covers-merges.yml` | PR targeting main; the job runs only when the head branch is `release/**` | every release-worthy merge since the last tag is documented in CHANGELOG | Blocking (ordinary merges rely on the manual CONTRIBUTING fallback) | none |
+| `platform-port-reminder.yml` | PR targeting main | new top-level directory → platform-ports policy reminder | Advisory (one `::warning::`, always exits 0; the merge decision stays with the maintainer) | none |
+| `freshness-check.yml` | weekly schedule + push (two-file path filter for branch pushes; **also every tag push**) + manual dispatch | PRISMA-trAIce snapshot staleness | Advisory for staleness (warns on stderr, exits 0); malformed protocol metadata is a hard failure | none |
+| `harness-retirement-monthly.yml` | monthly schedule + manual dispatch | opens the monthly prompt-debt audit issue | Administrative | none |
+| `defer-label-gate.yml` | tag push `v*` | open `defer:<tag>` issues must be closed or relabelled | Post-push detection | `[skip-defer-check]` in the tagged commit message |
+| `release-cooldown.yml` | tag push `v*` | paces consecutive release tags | Post-push detection | `[skip-cooldown]` in the commit/tag message |
+| `tag-version-match.yml` | tag push `v*` | re-runs the full version-consistency lint at the tag | Post-push detection | none |
+
+Count, honestly stated: **14 workflows — 8 blocking on at least one event class, 2
+advisory, 1 administrative, 3 post-push detection.**
+
+Inventory sync, the count line, and the bypass tokens are pinned by
+`scripts/check_workflow_classification.py`; the class *semantics* — whether a row
+honestly describes its workflow's behavior — stay owned by code review, mirroring the
+degradation-registry posture.
 
 ## 8. ARS Evolution Timeline
 
