@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Tests for check_review_form_note_sync.py (#921).
 
-Mutation tests confirm the lint is not accept-all: every break in the marker
-grammar, in a surface's bytes, or in the note's neutral option list must fail
-it, and the clean repository must pass.
+The marker grammar is tested once in test_skill_lint_marker_block.py (#923).
+These tests check the wiring (the clean repository passes, each listed surface
+and the canonical file are checked under this lint's ids, the exit codes) and
+RF-3: every break in the note's neutral option list must fail the lint.
 """
 from __future__ import annotations
 
@@ -19,7 +20,6 @@ from scripts.check_review_form_note_sync import (
     NEUTRALITY,
     SURFACES,
     check,
-    extract_block,
 )
 from tests.test_helpers import run_script
 
@@ -89,44 +89,23 @@ def test_one_changed_byte_in_a_surface_fails(tree: Path, rel: Path) -> None:
     assert f"RF-2 {rel}: review-form note block differs" in _errors(tree)
 
 
-def test_line_ending_drift_in_a_surface_fails(tree: Path) -> None:
-    path = tree / SKILL
-    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
-    assert "differs only in its line ending" in _errors(tree)
-
-
-def test_surface_without_markers_fails(tree: Path) -> None:
-    _edit(tree, SKILL, BEGIN + "\n", "")
-    _edit(tree, SKILL, "\n" + END, "")
-    assert f"RF-2 {SKILL}: expected one {BEGIN}" in _errors(tree)
-
-
-def test_surface_with_block_twice_fails(tree: Path) -> None:
-    block, errors = extract_block((REPO_ROOT / CANONICAL).read_text(encoding="utf-8"), "t")
-    assert block is not None, errors
-    text = (tree / SKILL).read_text(encoding="utf-8")
-    (tree / SKILL).write_text(f"{text}\n{BEGIN}\n{block}\n{END}\n", encoding="utf-8")
-    assert "found 2 occurrence(s)" in _errors(tree)
-
-
-def test_marker_not_alone_on_its_line_fails(tree: Path) -> None:
-    _edit(tree, SKILL, BEGIN + "\n", "Text " + BEGIN + "\n")
-    assert "0 on their own line" in _errors(tree)
-
-
-def test_canonical_markers_reversed_fails(tree: Path) -> None:
+def test_malformed_canonical_is_reported_as_rf_1_and_skips_rf_3(tree: Path) -> None:
     _edit(tree, CANONICAL, BEGIN, "@@BEGIN@@")
     _edit(tree, CANONICAL, END, BEGIN)
     _edit(tree, CANONICAL, "@@BEGIN@@", END)
-    assert f"RF-1 {CANONICAL}: {END} comes before {BEGIN}" in _errors(tree)
+    errors = _errors(tree)
+    assert f"RF-1 {CANONICAL}: {END} comes before {BEGIN}" in errors
+    assert "RF-3" not in errors
 
 
-def test_empty_canonical_block_fails(tree: Path) -> None:
+def test_empty_canonical_block_skips_rf_3(tree: Path) -> None:
     text = (tree / CANONICAL).read_text(encoding="utf-8")
     head, rest = text.split(BEGIN + "\n", 1)
     _, tail = rest.split(END, 1)
     (tree / CANONICAL).write_text(head + BEGIN + "\n\n" + END + tail, encoding="utf-8")
-    assert "block is empty" in _errors(tree)
+    errors = _errors(tree)
+    assert "RF-1" in errors and "block is empty" in errors
+    assert "RF-3" not in errors
 
 
 def test_changed_canonical_fails_every_surface(tree: Path) -> None:
