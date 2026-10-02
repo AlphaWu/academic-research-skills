@@ -51,7 +51,7 @@ derive or refresh it from a clock, path, artifact contents, or transcript.
 **Contract:** full spec in [`../references/passport_as_reset_boundary.md`](../references/passport_as_reset_boundary.md) §"`resume_from_passport` mode contract".
 
 **Orchestrator obligations:**
-1. **Acquire passport lock.** Before reading the ledger or checking for a prior consuming entry, acquire an exclusive advisory lock on the adjacent stable `.<passport-basename>.lock` sidecar (see `references/passport_as_reset_boundary.md` §"Concurrency model"). Every passport writer uses this same sidecar; never lock the replaceable passport inode. Hold the lock across the read, the no-prior-resume check, and the append. Release after the append is durable on disk. Do NOT release between steps.
+1. **Acquire passport lock.** Before the authoritative read of the ledger and the check for a prior consuming entry, acquire an exclusive advisory lock on the adjacent stable `.<passport-basename>.lock` sidecar (see `references/passport_as_reset_boundary.md` §"Concurrency model"). Every passport writer uses this same sidecar; never lock the replaceable passport inode. Ask steps 7-8 first from an unlocked read, then acquire the lock, re-read, repeat the no-prior-resume check, and append; release after the append is durable on disk (protocol doc, Iron rule 9).
 2. Parse `<hash>` from user input. Validate `^[0-9a-f]{12}$`.
 3. Locate passport file: prefer explicit path in user input; else look in `./passports/` or `./material_passport*.yaml` relative to CWD; else ask the user for the path.
 4. Load `reset_boundary[]`. Find the entry with `kind: boundary` and matching `hash`. No match → hard error: "Passport hash `<hash>` not found in `<path>`. Cannot resume."
@@ -170,19 +170,19 @@ consecutive_continue_count: integer (reset to 0 when user chooses any action oth
 
 **Applicability:**
 
-| Flag state | Mode | Behavior at FULL checkpoint |
+| Flag state | Mode | Behavior at FULL or MANDATORY checkpoint |
 |------------|------|-----------------------------|
 | unset / `=0` | any | Continuation (pre-v3.6.3 default) — no reset tag |
 | `=1` | `systematic-review` | **Mandatory reset**; orchestrator refuses in-session continuation |
 | `=1` | any other mode | **Strong-default reset**; user `continue` may override for the next stage only |
 
-SLIM checkpoints never reset. MANDATORY checkpoints co-occur with reset when applicable (reset does not downgrade mandatory).
+SLIM checkpoints never reset; a MANDATORY checkpoint resets and stays MANDATORY (protocol doc, MANDATORY paragraph).
 
-**Reset-boundary emission sequence (flag ON, FULL checkpoint):**
+**Reset-boundary emission sequence (flag ON, FULL or MANDATORY checkpoint):**
 
 1. `state_tracker` stages a new `kind: boundary` entry for `reset_boundary[]` (Schema 9). Entry matches `shared/contracts/passport/reset_ledger_entry.schema.json` `#/$defs/boundary`.
 2. Orchestrator computes `hash` using the normative byte serialization defined in protocol doc §"The reset boundary protocol" step 2: JSON Canonical Form (RFC 8785) per entry, LF-separated, new entry appended with `hash` set to placeholder `"000000000000"`, SHA-256 first 12 lowercase hex. Write the computed hash back into the new entry, then append to the ledger. Follow the protocol doc exactly — any deviation breaks cross-session resume.
-3. If the checkpoint co-occurs with a MANDATORY user decision (e.g., Stage 3 review outcome, Stage 5 finalization format), set `pending_decision` on the new entry. Each option is an object with `value` (branch identifier), `next_stage` (stage to route to, or `null` to terminate), and optional `next_mode`. `next` on the boundary entry is still populated as a best-guess default but must NOT be used to auto-advance — on resume the orchestrator looks up the chosen `value` in `options[]` and routes via that option's `next_stage`/`next_mode` (see §Resume Mode obligations).
+3. If the checkpoint co-occurs with a MANDATORY user decision (e.g., Stage 3 review outcome, Stage 5 finalization format), the entry staged in step 1 carries `pending_decision`, set before step 2 hashes it (the protocol hashes the entry with all other fields populated). Each option is an object with `value` (branch identifier), `next_stage` (stage to route to, or `null` to terminate), and optional `next_mode`. `next` on the boundary entry is still populated as a best-guess default but must NOT be used to auto-advance — on resume the orchestrator looks up the chosen `value` in `options[]` and routes via that option's `next_stage`/`next_mode` (see §Resume Mode obligations).
 4. In the checkpoint notification, orchestrator emits — as a distinct block below the Decision Dashboard but above the continue/pause prompt:
 
    ```
@@ -197,7 +197,7 @@ SLIM checkpoints never reset. MANDATORY checkpoints co-occur with reset when app
 
    `<hash>` is 12 lowercase hex characters per `reset_ledger_entry.schema.json` — the schema is authoritative for the format.
 
-5. Orchestrator halts after emission. For `systematic-review` mode, orchestrator refuses any in-session `continue` and repeats the Resume Instruction. For other modes, an in-session `continue` is honored once but the orchestrator uses ONLY the passport ledger as input to the next stage (no replay of prior turns).
+5. Orchestrator halts after emission. For `systematic-review` mode, orchestrator refuses any in-session `continue` and repeats the Resume Instruction. For other modes, an in-session `continue` is honored once but the orchestrator uses ONLY the passport ledger as input to the next stage (no replay of prior turns); a `pending_decision` on the boundary is asked first (protocol doc, step 6).
 
 **Iron rules (reset boundary):**
 
@@ -226,8 +226,10 @@ Full protocol: [`../references/passport_as_reset_boundary.md`](../references/pas
 
 **Flag:** `ARS_INQUIRY_LEDGER=1`. Unset or `0` means the entire sequence below
 is omitted: no ledger read/write, no pointer, no summary, and no user-facing
-branch interaction. With the flag on, an in-memory first branch still follows
-the linear path; do not publish a ledger or `inquiry_ledger_ref` until a second
+branch interaction. The ledger needs a research-workflow profile binding
+(`shared/contracts/README.md` § Research-family workflow profiles (#742)), which no pipeline
+step creates; without one, say so once and continue linearly. With the flag on,
+an in-memory first branch still follows the linear path; do not publish a ledger or `inquiry_ledger_ref` until a second
 branch has been explicitly recorded.
 
 **Authority and replay:** use `scripts/inquiry_branch_ledger.py` for every
@@ -561,7 +563,7 @@ The cost is multiplicative: a 10-stage pipeline with cross-model enabled produce
 
 ### 3.6 Claim-Faithfulness Audit Gate (v3.8)
 
-**Trigger.** Stage 4 → Stage 5 transition, in the same handoff slot as the v3.7.1 Cite-Time Provenance Finalizer. The audit dispatches AFTER the Cite-Time Provenance Finalizer pass (anchor-presence settled per v3.7.3 §3.1) and BEFORE `formatter_agent` runs its hard gate at the start of Stage 5. Mirrors the §3.5 audit-between-deliverable-and-consumption ordering. Spec: `docs/design/2026-05-15-issue-103-claim-alignment-audit-spec.md` §5 + §1 deliverable 4.
+**Trigger.** Stage 4 → Stage 5 transition, in the same handoff slot as the v3.7.1 Cite-Time Provenance Finalizer; in pipeline mode both first run at Stage 4.5 (§ Final-Output Pre-Check at Stage 4.5 (#929)). The audit dispatches AFTER the Cite-Time Provenance Finalizer pass (anchor-presence settled per v3.7.3 §3.1) and BEFORE `formatter_agent` runs its hard gate at the start of Stage 5. Mirrors the §3.5 audit-between-deliverable-and-consumption ordering. Spec: `docs/design/2026-05-15-issue-103-claim-alignment-audit-spec.md` §5 + §1 deliverable 4.
 
 **Why not Stage 5→6:** `formatter_agent`'s terminal hard gate runs **during** Stage 5. Dispatching at Stage 5→6 would produce `claim_audit_results[]` after the gate has already passed; HIGH-WARN-CLAIM-NOT-SUPPORTED could not block output. Stage 4→5 is the only slot where (a) the draft prose carries resolved v3.7.3 anchors, (b) the cite finalizer has settled anchor presence, and (c) the formatter hard gate has NOT yet run.
 
@@ -911,6 +913,16 @@ The Stage 3' verifier does not see the author's choices (#576), so a `must_fix` 
 
 ---
 
+## Final-Output Pre-Check at Stage 4.5 (#929)
+
+The Cite-Time Provenance Finalizer, its strict terminal policies, and, under `ARS_CLAIM_AUDIT=1`, the claim-faithfulness audit (§ 3.6) produce markers that `formatter_agent` refuses at Stage 5. That is after the Stage 5 entry gate, and Stage 5 cannot roll back (`../references/pipeline_state_machine.md`). In pipeline mode, therefore, run the finalizer pass and the claim audit on a working copy of the accepted draft once Stage 4.5's integrity verification returns, before its checkpoint. Read the copy's markers for the checkpoint list, then discard it: the accepted draft's bytes stay unchanged, so the revision-evidence and E6 bindings to them still hold.
+
+- Anything the formatter's REFUSE rules (`formatter_agent.md` § Cite-Time Provenance Hard Gate) would refuse is a Stage 4.5 issue: list it at the checkpoint with what would clear it, and route it through the ordinary correction rounds.
+- The Integrity Check FAIL Loop does not let such an item continue with a warning (`../references/pipeline_state_machine.md` § Integrity Check FAIL Loop): it is handled (supply the original, revise the claim, acknowledge a read) or removed.
+- The Stage 5 passes still run. Stage 5 uses the pre-check's valid claim-audit verdicts instead of judging again when the accepted draft and the audit's inputs are byte-identical and the recorded judge model (known, not `unknown`) and prompt version match; otherwise it runs the audit again. An `audit_tool_failure` is never reused: show it at the Stage 4.5 checkpoint with a retry there, and retry it at Stage 5.
+
+---
+
 ## Mid-Entry Material Passport Check
 
 When a user enters the pipeline mid-way (e.g., bringing an existing paper), the orchestrator MUST check for a Material Passport before deciding whether to require full Stage 2.5 verification.
@@ -1100,7 +1112,7 @@ no `--all`. See
 
 ## Cite-Time Provenance Finalizer (v3.7.1)
 
-When `academic-pipeline` mode is active, the orchestrator runs the **Cite-Time Provenance Finalizer** at every Stage 4 → Stage 5 transition (and on every revision loop pass back through Stage 4) to resolve the two-layer citation markers emitted by `synthesis_agent`, `draft_writer_agent`, and `report_compiler_agent` per Step 3a.
+When `academic-pipeline` mode is active, the orchestrator runs the **Cite-Time Provenance Finalizer** at every Stage 4 → Stage 5 transition (first at Stage 4.5, § Final-Output Pre-Check at Stage 4.5 (#929)) (and on every revision loop pass back through Stage 4) to resolve the two-layer citation markers emitted by `synthesis_agent`, `draft_writer_agent`, and `report_compiler_agent` per Step 3a.
 
 **Trigger boundary:** Stage transition from drafting (Stage 4) to formatting (Stage 5), mirroring the v3.6.7 Step 6 audit_artifact gate. The finalizer runs BEFORE `formatter_agent`'s hard-gate check.
 
@@ -1454,7 +1466,7 @@ A **package-level** gate, explicitly NOT the ref-marker stamp path above: the v3
 1. **Resolve the policy.** Read `terminal_policies.submission_package` from the Material Passport. Key absence — or absence of the whole `terminal_policies` object — resolves to `advisory` (the same per-key runtime convention as the existing keys). ALWAYS pass the resolved value explicitly: the CLI is never run policy-less in the pipeline (an unflagged run stamps `policy_slug: null` = a standalone unevaluated report, which can never satisfy the freshness guard below).
 2. **Run the verifier** on the package directory: `python scripts/verify_submission_package.py <package_dir> --policy <resolved>` plus `--passport` / `--venue-profile` / `--join-map` when the run has them — the SAME input set the freshness invocation (step 5) will carry, or the inputs fingerprint can never match.
 3. **Gate on stdout tokens, NEVER on exit codes.** Exit 1 also covers nonterminal advisory/heuristic fails (a strict-mode heuristic fail exits 1 with NO terminal token and must not block — heuristic findings never promote, structurally). Match each token as a line PREFIX, not full-line equality — the emitted lines carry a `strict_eligible_fails=<ids>` / `strict_eligible_not_checked=<ids>` suffix. The terminal signals are exactly:
-   - `TERMINAL-BLOCK policy=submission_package` (a strict-eligible check FAILED under `strict`) → return the package to the formatter fix loop, **bounded: 2 fix rounds**, then surface to the scholar (mirrors the revision-loop cap philosophy). One round = dispatch the formatter to remediate the named findings, then re-run the verifier; if the 2nd round still emits the token, STOP and surface — never a 3rd. Never carry a verdict across rounds.
+   - `TERMINAL-BLOCK policy=submission_package` (a strict-eligible check FAILED under `strict`) → return the package to the formatter fix loop, **bounded: 2 fix rounds**, then surface to the scholar (mirrors the revision-loop cap philosophy). One round = dispatch the formatter to remediate the named findings a formatting change can fix, then re-run the verifier (a finding that needs a content change goes to the scholar at once: the formatter cannot change content, so the ways out are flipping `submission_package` to `advisory` and re-finalizing, or stopping here); if the 2nd round still emits the token, STOP and surface — never a 3rd. Never carry a verdict across rounds.
    - `VERIFICATION-INCOMPLETE` (a strict-eligible check is NOT-CHECKED under `strict`) → blocks emission like a fail DOES (fail-closed §5.2: a missing parser or input must not waive the one check class the scholar opted into blocking on) — but its remediation is NOT the formatter fix loop: a missing venue profile or parser is not a formatter-fixable defect. Remediation, stated plainly to the scholar: declare a venue profile (under `strict`, Family B checks without one are strict-eligible NOT-CHECKED), or — the other way out — flip `submission_package` back to `advisory` and re-finalize.
 4. **Advisory path:** after the verifier writes its report, dispatch the formatter ONCE MORE in append-only mode to write the `Submission Package Advisories` section into `provenance_summary.md` from the report's findings (any fail / warn / NOT-CHECKED — see `formatter_agent.md`); then Stage 5 continues to its completion checkpoint. This re-entry is advisory transcription, not a content revision (no manuscript bytes change; Invariant 13 preserved). Byte-equivalence holds for non-opting users: no manuscript, ref-marker, or formatted-artifact bytes change — the report file and the advisories section are the only additions.
 5. **Report reuse REQUIRES the freshness guard.** Before ever reusing an existing report (resume, re-entry, second finalization pass), run `--check-freshness --policy <resolved>` first, WITH the same `--venue-profile` / `--passport` / `--join-map` arguments the reuse context carries (the guard compares an inputs fingerprint too — a report produced under a different venue profile is stale). `STALE-REPORT` (fingerprint, inputs, or policy mismatch; null-stamped; missing/unreadable) → re-run the verifier; NEVER evaluate a stale report (§5.2 — the package-level analog of the `policy_hash` stamp). A FRESH report re-emits its verdict (token + exit semantics identical to a live run) — gate on that re-emitted token exactly as in step 3; "fresh" alone is never a pass.
